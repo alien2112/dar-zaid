@@ -14,16 +14,26 @@ const PaymentMethods = ({
   const [expandedCategory, setExpandedCategory] = useState(null);
 
   useEffect(() => {
-    const categories = paymentService.getPaymentMethodsByCategory(amount, currency);
-    setPaymentCategories(categories);
+    const load = async () => {
+      console.log('PaymentMethods: Loading payment methods...', { amount, currency });
+      // Ensure methods are loaded from backend first
+      await paymentService.loadPaymentMethods();
+      console.log('PaymentMethods: Loaded payment methods:', paymentService.paymentMethods.length);
 
-    // Auto-expand first category with available methods
-    const firstCategoryWithMethods = Object.keys(categories).find(
-      categoryId => categories[categoryId].methods.length > 0
-    );
-    if (firstCategoryWithMethods) {
-      setExpandedCategory(firstCategoryWithMethods);
-    }
+      const categories = paymentService.getPaymentMethodsByCategory(amount, currency);
+      console.log('PaymentMethods: Categorized methods:', categories);
+      setPaymentCategories(categories);
+
+      // Auto-expand first category with available methods
+      const firstCategoryWithMethods = Object.keys(categories).find(
+        categoryId => categories[categoryId].methods.length > 0
+      );
+      console.log('PaymentMethods: First category with methods:', firstCategoryWithMethods);
+      if (firstCategoryWithMethods) {
+        setExpandedCategory(firstCategoryWithMethods);
+      }
+    };
+    load();
   }, [amount, currency]);
 
   const handleMethodSelect = (method) => {

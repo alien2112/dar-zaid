@@ -1,5 +1,5 @@
 <?php
-require_once '../config/database.php';
+require_once __DIR__ . '/../config/database.php';
 
 header('Content-Type: application/json');
 $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : 'http://localhost:3000';
@@ -72,7 +72,7 @@ http_response_code(405); echo json_encode(['error'=>'Method not allowed']);
 ?>
 
 <?php
-require_once '../config/database.php';
+require_once __DIR__ . '/../config/database.php';
 
 header('Content-Type: application/json');
 $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiService } from '../services/api';
+import CustomLoader from '../components/CustomLoader';
 
 const AdminReports = () => {
   const [loading, setLoading] = useState(true);
@@ -58,7 +59,7 @@ const AdminReports = () => {
   }, [books, orders, reviews]);
 
   if (loading) {
-    return (<div className="loading"><div className="spinner"></div></div>);
+    return <CustomLoader />;
   }
 
   if (error) {

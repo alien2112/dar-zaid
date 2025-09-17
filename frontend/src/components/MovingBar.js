@@ -2,21 +2,37 @@ import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 
 const MovingBar = React.memo(() => {
-  const [text, setText] = useState('مرحباً بكم في دار زيد للنشر والتوزيع - شحن مجاني لطلبات أكثر من 200 ريال - خصم 15% على الطلبة والأكاديميين');
+  const [text, setText] = useState('');
 
   useEffect(() => {
+    let intervalId;
+
     const loadMovingBarText = async () => {
       try {
-        const response = await apiService.getMovingBarText();
-        setText(response.data.text || 'مرحباً بكم في دار زيد للنشر والتوزيع - شحن مجاني لطلبات أكثر من 200 ريال - خصم 15% على الطلبة والأكاديميين');
+        // Prefer dedicated endpoint; add cache-busting query param
+        const res = await apiService.getMovingBarText(`?t=${Date.now()}`);
+        const data = res?.data || {};
+        const value = data.text || data.moving_bar_text || data?.settings?.moving_bar_text || '';
+        setText(value);
       } catch (error) {
         console.error('Error loading moving bar text:', error);
-        // Keep default text if API fails
+        setText('');
       }
     };
 
     loadMovingBarText();
+    // Periodically refresh in case it changes from admin (lightweight)
+    intervalId = setInterval(loadMovingBarText, 60000);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
   }, []);
+
+  // Don't render if no text
+  if (!text) {
+    return null;
+  }
 
   return (
     <div style={{

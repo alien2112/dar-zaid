@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { newsService } from '../services/newsService';
 import { categoryService } from '../services/categoryService';
 import { apiService } from '../services/api';
+import ImageUpload from '../components/ImageUpload';
+import ImageGallery from '../components/ImageGallery';
+import CustomLoader from '../components/CustomLoader';
 
 const AdminSettings = () => {
   const [categories, setCategories] = useState([]);
@@ -26,9 +29,9 @@ const AdminSettings = () => {
   const [newPackage, setNewPackage] = useState({
     name: '',
     price: '',
-    currency: 'ريال',
-    authorShare: '70%',
-    freeCopies: 20,
+    currency: '',
+    authorShare: '',
+    freeCopies: 0,
     description: '',
     specifications: [],
     services: [],
@@ -42,7 +45,7 @@ const AdminSettings = () => {
   const [newBlogPost, setNewBlogPost] = useState({
     title: '',
     content: '',
-    author: 'إدارة الموقع',
+    author: '',
     image: '',
     status: 'published'
   });
@@ -58,6 +61,15 @@ const AdminSettings = () => {
     is_active: true
   });
   const [editingSliderImage, setEditingSliderImage] = useState(null);
+  const [teamPhotos, setTeamPhotos] = useState([]);
+  const [newTeamPhoto, setNewTeamPhoto] = useState({
+    title: '',
+    description: '',
+    image_url: '',
+    display_order: 0,
+    is_active: true
+  });
+  const [editingTeamPhoto, setEditingTeamPhoto] = useState(null);
   const [bookOfWeek, setBookOfWeek] = useState(null);
   const [availableBooks, setAvailableBooks] = useState([]);
   const [selectedBookId, setSelectedBookId] = useState('');
@@ -68,13 +80,19 @@ const AdminSettings = () => {
   const editNewsFileRef = useRef(null);
   const newSliderFileRef = useRef(null);
   const editSliderFileRef = useRef(null);
+  const newTeamPhotoFileRef = useRef(null);
+  const editTeamPhotoFileRef = useRef(null);
   const newBlogPostFileRef = useRef(null);
   const editBlogPostFileRef = useRef(null);
 
-  const uploadImageAndSetUrl = async (file, onUrl) => {
+  const uploadImageAndSetUrl = async (file, onUrl, uploadType = 'general', entityType = null, entityId = null, entityTitle = null) => {
     if (!file) return;
     const form = new FormData();
     form.append('image', file);
+    if (uploadType) form.append('upload_type', uploadType);
+    if (entityType) form.append('entity_type', entityType);
+    if (entityId) form.append('entity_id', entityId);
+    if (entityTitle) form.append('entity_title', entityTitle);
     try {
       const res = await apiService.uploadImage(form);
       const data = res.data || {};
@@ -131,6 +149,14 @@ const AdminSettings = () => {
     };
     loadSliderImages();
 
+    const loadTeamPhotos = async () => {
+      try {
+        const res = await apiService.getTeamPhotos(true); // admin=true to get all photos including inactive
+        setTeamPhotos(res.data.team_photos || []);
+      } catch {}
+    };
+    loadTeamPhotos();
+
     const loadBookOfWeek = async () => {
       try {
         const res = await apiService.getBookOfWeek();
@@ -150,9 +176,9 @@ const AdminSettings = () => {
     const loadMovingBarText = async () => {
       try {
         const res = await apiService.getMovingBarText();
-        setMovingBarText(res.data.text || 'مرحباً بكم في دار زيد للنشر والتوزيع - شحن مجاني لطلبات أكثر من 200 ريال - خصم 15% على الطلبة والأكاديميين');
+        setMovingBarText(res.data.text || '');
       } catch {
-        setMovingBarText('مرحباً بكم في دار زيد للنشر والتوزيع - شحن مجاني لطلبات أكثر من 200 ريال - خصم 15% على الطلبة والأكاديميين');
+        setMovingBarText('');
       }
     };
     loadMovingBarText();
@@ -404,9 +430,19 @@ const AdminSettings = () => {
   // Slider handlers
   const handleAddSliderImage = async (e) => {
     e.preventDefault();
-    if (!newSliderImage.title.trim()) return;
+    console.log('Form submitted with slider data:', newSliderImage);
+
+    // Validate title
+    if (!newSliderImage.title.trim()) {
+      alert('يرجى إدخال عنوان الشريحة');
+      return;
+    }
+
+    // Validate image URL with detailed logging
+    console.log('Checking image URL:', newSliderImage.image_url);
     if (!newSliderImage.image_url || !newSliderImage.image_url.trim()) {
-      alert('يرجى إدخال رابط صورة أو رفع صورة');
+      console.log('Image URL validation failed - no URL provided');
+      alert('يرجى إدخال رابط صورة أو رفع صورة ثم الضغط على زر "رفع الصورة"');
       return;
     }
 
@@ -433,7 +469,10 @@ const AdminSettings = () => {
 
   const handleUpdateSliderImage = async (e) => {
     e.preventDefault();
-    if (!editingSliderImage.title.trim()) return;
+    if (!editingSliderImage.title.trim()) {
+      alert('يرجى إدخال عنوان الشريحة');
+      return;
+    }
     if (!editingSliderImage.image_url || !editingSliderImage.image_url.trim()) {
       alert('يرجى إدخال رابط صورة أو رفع صورة');
       return;
@@ -459,12 +498,79 @@ const AdminSettings = () => {
     }
   };
 
+  // Team photos handlers
+  const handleAddTeamPhoto = async (e) => {
+    e.preventDefault();
+    console.log('Form submitted with team photo data:', newTeamPhoto);
+
+    // Validate title
+    if (!newTeamPhoto.title.trim()) {
+      alert('يرجى إدخال عنوان الصورة');
+      return;
+    }
+
+    // Validate image URL
+    console.log('Checking image URL:', newTeamPhoto.image_url);
+    if (!newTeamPhoto.image_url || !newTeamPhoto.image_url.trim()) {
+      console.log('Image URL validation failed - no URL provided');
+      alert('يرجى إدخال رابط صورة أو رفع صورة ثم الضغط على زر "رفع الصورة"');
+      return;
+    }
+
+    try {
+      const res = await apiService.addTeamPhoto(newTeamPhoto);
+      setTeamPhotos([{ id: res.data.id, ...newTeamPhoto }, ...(teamPhotos || [])]);
+      setNewTeamPhoto({
+        title: '',
+        description: '',
+        image_url: '',
+        display_order: 0,
+        is_active: true
+      });
+      alert('تم إضافة صورة الفريق بنجاح');
+    } catch {
+      alert('فشل إضافة صورة الفريق');
+    }
+  };
+
+  const handleEditTeamPhoto = (photo) => {
+    setEditingTeamPhoto({ ...photo });
+  };
+
+  const handleUpdateTeamPhoto = async (e) => {
+    e.preventDefault();
+    if (!editingTeamPhoto.title.trim()) {
+      alert('يرجى إدخال عنوان الصورة');
+      return;
+    }
+    if (!editingTeamPhoto.image_url || !editingTeamPhoto.image_url.trim()) {
+      alert('يرجى إدخال رابط صورة أو رفع صورة ثم الضغط على زر "رفع الصورة"');
+      return;
+    }
+    try {
+      await apiService.updateTeamPhoto(editingTeamPhoto.id, editingTeamPhoto);
+      setTeamPhotos(teamPhotos.map(photo =>
+        photo.id === editingTeamPhoto.id ? editingTeamPhoto : photo
+      ));
+      setEditingTeamPhoto(null);
+      alert('تم تحديث صورة الفريق بنجاح');
+    } catch {
+      alert('فشل تحديث صورة الفريق');
+    }
+  };
+
+  const handleDeleteTeamPhoto = async (photoId) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذه الصورة؟')) return;
+    try {
+      await apiService.deleteTeamPhoto(photoId);
+      setTeamPhotos(teamPhotos.filter(photo => photo.id !== photoId));
+    } catch {
+      alert('فشل حذف صورة الفريق');
+    }
+  };
+
   if (loading) {
-    return (
-      <div className="loading">
-        <div className="spinner"></div>
-      </div>
-    );
+    return <CustomLoader />;
   }
 
   return (
@@ -480,8 +586,10 @@ const AdminSettings = () => {
           <button className={`btn ${activeTab==='packages'?'btn-primary':'btn-secondary'}`} onClick={() => setActiveTab('packages')}>الباقات</button>
           <button className={`btn ${activeTab==='blog'?'btn-primary':'btn-secondary'}`} onClick={() => setActiveTab('blog')}>المدونة</button>
           <button className={`btn ${activeTab==='slider'?'btn-primary':'btn-secondary'}`} onClick={() => setActiveTab('slider')}>صور السلايدر</button>
+          <button className={`btn ${activeTab==='team-photos'?'btn-primary':'btn-secondary'}`} onClick={() => setActiveTab('team-photos')}>صور الفريق</button>
           <button className={`btn ${activeTab==='book-of-week'?'btn-primary':'btn-secondary'}`} onClick={() => setActiveTab('book-of-week')}>كتاب الأسبوع</button>
           <button className={`btn ${activeTab==='news'?'btn-primary':'btn-secondary'}`} onClick={() => setActiveTab('news')}>الإصدارات/الأخبار</button>
+          <button className={`btn ${activeTab==='images'?'btn-primary':'btn-secondary'}`} onClick={() => setActiveTab('images')}>معرض الصور</button>
         </div>
 
         <div className="card" style={{ marginBottom: '2rem' }}>
@@ -1054,18 +1162,27 @@ const AdminSettings = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>رابط الصورة</label>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input
-                      type="text"
-                      value={newBlogPost.image}
-                      onChange={(e) => setNewBlogPost({ ...newBlogPost, image: e.target.value })}
-                      placeholder="https://example.com/image.jpg"
-                    />
-                    <button type="button" className="btn btn-secondary" onClick={() => newBlogPostFileRef.current?.click()}>رفع صورة</button>
-                  </div>
-                  <input ref={newBlogPostFileRef} type="file" accept="image/*" style={{ display: 'none' }}
-                    onChange={async (e)=>{ const f=e.target.files&&e.target.files[0]; await uploadImageAndSetUrl(f, (url)=>setNewBlogPost({ ...newBlogPost, image: url })); e.target.value=''; }} />
+                  <label>صورة المقال</label>
+                  <ImageUpload
+                    uploadType="blog_image"
+                    entityType="blog"
+                    entityTitle={newBlogPost.title}
+                    onImageSelect={(file) => {
+                      if (file && file.url) {
+                        setNewBlogPost({ ...newBlogPost, image: file.url });
+                      }
+                    }}
+                    onImageUpload={(result) => {
+                      if (result && result.url) {
+                        setNewBlogPost({ ...newBlogPost, image: result.url });
+                      }
+                    }}
+                    onError={(error) => {
+                      console.error('Upload failed:', error);
+                      alert('فشل رفع الصورة: ' + error);
+                    }}
+                    placeholder="اختر صورة المقال أو اسحبها هنا"
+                  />
                 </div>
                 <div className="form-group">
                   <label>حالة المقال</label>
@@ -1142,17 +1259,27 @@ const AdminSettings = () => {
                       />
                     </div>
                     <div className="form-group">
-                      <label>رابط الصورة</label>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <input
-                          type="text"
-                          value={editingBlogPost.image || ''}
-                          onChange={(e) => setEditingBlogPost({ ...editingBlogPost, image: e.target.value })}
-                        />
-                        <button type="button" className="btn btn-secondary" onClick={() => editBlogPostFileRef.current?.click()}>رفع صورة</button>
-                      </div>
-                      <input ref={editBlogPostFileRef} type="file" accept="image/*" style={{ display: 'none' }}
-                        onChange={async (e)=>{ const f=e.target.files&&e.target.files[0]; await uploadImageAndSetUrl(f, (url)=>setEditingBlogPost({ ...editingBlogPost, image: url })); e.target.value=''; }} />
+                      <label>صورة المقال</label>
+                      <ImageUpload
+                        uploadType="blog_image"
+                        entityType="blog"
+                        entityId={editingBlogPost.id}
+                        onImageSelect={(file) => {
+                          if (file && file.url) {
+                            setEditingBlogPost({ ...editingBlogPost, image: file.url });
+                          }
+                        }}
+                        onImageUpload={(result) => {
+                          if (result && result.url) {
+                            setEditingBlogPost({ ...editingBlogPost, image: result.url });
+                          }
+                        }}
+                        onError={(error) => {
+                          console.error('Upload failed:', error);
+                          alert('فشل رفع الصورة: ' + error);
+                        }}
+                        placeholder="اختر صورة المقال أو اسحبها هنا"
+                      />
                     </div>
                     <div className="form-group">
                       <label>حالة المقال</label>
@@ -1211,18 +1338,46 @@ const AdminSettings = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>رابط الصورة</label>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input
-                      type="text"
-                      value={newSliderImage.image_url}
-                      onChange={(e) => setNewSliderImage({ ...newSliderImage, image_url: e.target.value })}
-                      placeholder="رابط كامل أو /backend/uploads/xx.png"
-                    />
-                    <button type="button" className="btn btn-secondary" onClick={() => newSliderFileRef.current?.click()}>رفع صورة</button>
-                  </div>
-                  <input ref={newSliderFileRef} type="file" accept="image/*" style={{ display: 'none' }}
-                    onChange={async (e)=>{ const f=e.target.files&&e.target.files[0]; await uploadImageAndSetUrl(f, (url)=>setNewSliderImage({ ...newSliderImage, image_url: url })); e.target.value=''; }} />
+                  <label>صورة الشريحة</label>
+                  {newSliderImage.image_url && (
+                    <div style={{
+                      marginBottom: '0.5rem',
+                      padding: '0.5rem',
+                      background: '#f0f9ff',
+                      border: '1px solid #3b82f6',
+                      borderRadius: '4px',
+                      fontSize: '12px'
+                    }}>
+                      <strong>الصورة المحددة:</strong> {newSliderImage.image_url}
+                    </div>
+                  )}
+                  <ImageUpload
+                    uploadType="slider_image"
+                    entityType="slider"
+                    entityTitle={newSliderImage.title}
+                    onImageSelect={(file) => {
+                      console.log('ImageUpload onImageSelect called with:', file);
+                      if (file && file.url) {
+                        console.log('Setting image_url to:', file.url);
+                        setNewSliderImage(prev => ({ ...prev, image_url: file.url }));
+                      } else if (file === null) {
+                        console.log('Image selection cleared');
+                        setNewSliderImage(prev => ({ ...prev, image_url: '' }));
+                      }
+                    }}
+                    onImageUpload={(result) => {
+                      console.log('ImageUpload onImageUpload called with:', result);
+                      if (result && result.url) {
+                        console.log('Setting image_url to:', result.url);
+                        setNewSliderImage(prev => ({ ...prev, image_url: result.url }));
+                      }
+                    }}
+                    onError={(error) => {
+                      console.error('Upload failed:', error);
+                      alert('فشل رفع الصورة: ' + error);
+                    }}
+                    placeholder="اختر صورة الشريحة أو اسحبها هنا"
+                  />
                 </div>
                 <div className="form-group">
                   <label>رابط الانتقال</label>
@@ -1325,17 +1480,27 @@ const AdminSettings = () => {
                       />
                     </div>
                     <div className="form-group">
-                      <label>رابط الصورة</label>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <input
-                          type="text"
-                          value={editingSliderImage.image_url}
-                          onChange={(e) => setEditingSliderImage({ ...editingSliderImage, image_url: e.target.value })}
-                        />
-                        <button type="button" className="btn btn-secondary" onClick={() => editSliderFileRef.current?.click()}>رفع صورة</button>
-                      </div>
-                      <input ref={editSliderFileRef} type="file" accept="image/*" style={{ display: 'none' }}
-                        onChange={async (e)=>{ const f=e.target.files&&e.target.files[0]; await uploadImageAndSetUrl(f, (url)=>setEditingSliderImage({ ...editingSliderImage, image_url: url })); e.target.value=''; }} />
+                      <label>صورة الشريحة</label>
+                      <ImageUpload
+                        uploadType="slider_image"
+                        entityType="slider"
+                        entityId={editingSliderImage.id}
+                        onImageSelect={(file) => {
+                          if (file && file.url) {
+                            setEditingSliderImage({ ...editingSliderImage, image_url: file.url });
+                          }
+                        }}
+                        onImageUpload={(result) => {
+                          if (result && result.url) {
+                            setEditingSliderImage({ ...editingSliderImage, image_url: result.url });
+                          }
+                        }}
+                        onError={(error) => {
+                          console.error('Upload failed:', error);
+                          alert('فشل رفع الصورة: ' + error);
+                        }}
+                        placeholder="اختر صورة الشريحة أو اسحبها هنا"
+                      />
                     </div>
                     <div className="form-group">
                       <label>رابط الانتقال</label>
@@ -1376,6 +1541,203 @@ const AdminSettings = () => {
                   <div className="modal-actions">
                     <button type="submit" className="btn btn-primary">حفظ التغييرات</button>
                     <button type="button" className="btn btn-secondary" onClick={() => setEditingSliderImage(null)}>إلغاء</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+        )}
+
+        {activeTab === 'team-photos' && (
+        <div className="card">
+          <h2>إدارة صور الفريق</h2>
+          <div className="modern-form" style={{ padding: 0, boxShadow: 'none' }}>
+            <form onSubmit={handleAddTeamPhoto}>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>العنوان</label>
+                  <input
+                    type="text"
+                    value={newTeamPhoto.title}
+                    onChange={(e) => setNewTeamPhoto({ ...newTeamPhoto, title: e.target.value })}
+                    placeholder="عنوان الصورة"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>الوصف</label>
+                  <textarea
+                    value={newTeamPhoto.description}
+                    onChange={(e) => setNewTeamPhoto({ ...newTeamPhoto, description: e.target.value })}
+                    placeholder="وصف الصورة (اختياري)"
+                    rows="3"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>رابط الصورة</label>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={newTeamPhoto.image_url}
+                      onChange={(e) => setNewTeamPhoto({ ...newTeamPhoto, image_url: e.target.value })}
+                      placeholder="رابط الصورة"
+                      style={{ flex: 1 }}
+                    />
+                    {newTeamPhoto.image_url && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <img
+                          src={newTeamPhoto.image_url}
+                          alt="Preview"
+                          style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }}
+                        />
+                        <strong>الصورة المحددة:</strong> {newTeamPhoto.image_url}
+                      </div>
+                    )}
+                  </div>
+                  <ImageUpload
+                    ref={newTeamPhotoFileRef}
+                    uploadType="team_photo"
+                    entityType="team_photo"
+                    entityTitle={newTeamPhoto.title}
+                    onUpload={(file) => {
+                      uploadImageAndSetUrl(file, (url) => {
+                        setNewTeamPhoto(prev => ({ ...prev, image_url: url }));
+                      }, 'team_photo', 'team_photo', null, newTeamPhoto.title);
+                    }}
+                    onUploadComplete={(result) => {
+                      setNewTeamPhoto(prev => ({ ...prev, image_url: result.url }));
+                    }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>ترتيب العرض</label>
+                  <input
+                    type="number"
+                    value={newTeamPhoto.display_order}
+                    onChange={(e) => setNewTeamPhoto({ ...newTeamPhoto, display_order: parseInt(e.target.value) })}
+                    min="0"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={newTeamPhoto.is_active}
+                      onChange={(e) => setNewTeamPhoto({ ...newTeamPhoto, is_active: e.target.checked })}
+                    />
+                    نشط
+                  </label>
+                </div>
+              </div>
+              <button type="submit" className="btn btn-primary">إضافة صورة الفريق</button>
+            </form>
+          </div>
+
+          <div className="table-container" style={{ marginTop: '2rem' }}>
+            <h3>صور الفريق الحالية</h3>
+            <div className="table-header">
+              <div>العنوان</div>
+              <div>الوصف</div>
+              <div>الصورة</div>
+              <div>الترتيب</div>
+              <div>الحالة</div>
+              <div>الإجراءات</div>
+            </div>
+            {(teamPhotos || []).map((photo) => (
+              <div key={photo.id} className="table-row">
+                <div>{photo.title}</div>
+                <div>{photo.description || '-'}</div>
+                <div>
+                  <img
+                    src={photo.image_url}
+                    alt={photo.title}
+                    style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }}
+                  />
+                </div>
+                <div>{photo.display_order}</div>
+                <div>
+                  <span className={`status ${photo.is_active ? 'status-published' : 'status-draft'}`}>
+                    {photo.is_active ? 'نشط' : 'غير نشط'}
+                  </span>
+                </div>
+                <div>
+                  <button className="btn btn-small btn-secondary" onClick={() => handleEditTeamPhoto(photo)}>تعديل</button>
+                  <button className="btn btn-small btn-delete" onClick={() => handleDeleteTeamPhoto(photo.id)}>حذف</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {editingTeamPhoto && (
+            <div className="modal">
+              <div className="modal-content">
+                <h3>تعديل صورة الفريق</h3>
+                <form onSubmit={handleUpdateTeamPhoto}>
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>العنوان</label>
+                      <input
+                        type="text"
+                        value={editingTeamPhoto.title}
+                        onChange={(e) => setEditingTeamPhoto({ ...editingTeamPhoto, title: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>الوصف</label>
+                      <textarea
+                        value={editingTeamPhoto.description || ''}
+                        onChange={(e) => setEditingTeamPhoto({ ...editingTeamPhoto, description: e.target.value })}
+                        rows="3"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>رابط الصورة</label>
+                      <ImageUpload
+                        ref={editTeamPhotoFileRef}
+                        uploadType="team_photo"
+                        entityType="team_photo"
+                        entityId={editingTeamPhoto.id}
+                        onUpload={(file) => {
+                          uploadImageAndSetUrl(file, (url) => {
+                            setEditingTeamPhoto({ ...editingTeamPhoto, image_url: url });
+                          }, 'team_photo', 'team_photo', editingTeamPhoto.id);
+                        }}
+                        onUploadComplete={(result) => {
+                          setEditingTeamPhoto({ ...editingTeamPhoto, image_url: result.url });
+                        }}
+                      />
+                      <input
+                        type="text"
+                        value={editingTeamPhoto.image_url || ''}
+                        onChange={(e) => setEditingTeamPhoto({ ...editingTeamPhoto, image_url: e.target.value })}
+                        placeholder="رابط الصورة"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>ترتيب العرض</label>
+                      <input
+                        type="number"
+                        value={editingTeamPhoto.display_order || 0}
+                        onChange={(e) => setEditingTeamPhoto({ ...editingTeamPhoto, display_order: parseInt(e.target.value) })}
+                        min="0"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={editingTeamPhoto.is_active !== false}
+                          onChange={(e) => setEditingTeamPhoto({ ...editingTeamPhoto, is_active: e.target.checked })}
+                        />
+                        نشط
+                      </label>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                    <button type="submit" className="btn btn-primary">حفظ التغييرات</button>
+                    <button type="button" className="btn btn-secondary" onClick={() => setEditingTeamPhoto(null)}>إلغاء</button>
                   </div>
                 </form>
               </div>
@@ -1496,13 +1858,27 @@ const AdminSettings = () => {
                 <textarea rows="3" value={newNews.content} onChange={(e)=>setNewNews({ ...newNews, content: e.target.value })}></textarea>
               </div>
               <div className="form-group">
-                <label>رابط الصورة</label>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <input type="text" value={newNews.image} onChange={(e)=>setNewNews({ ...newNews, image: e.target.value })} />
-                  <button type="button" className="btn btn-secondary" onClick={() => newNewsFileRef.current?.click()}>رفع صورة</button>
-                </div>
-                <input ref={newNewsFileRef} type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={async (e)=>{ const f=e.target.files&&e.target.files[0]; await uploadImageAndSetUrl(f, (url)=>setNewNews({ ...newNews, image: url })); e.target.value=''; }} />
+                <label>صورة الخبر</label>
+                <ImageUpload
+                  uploadType="news_image"
+                  entityType="news"
+                  entityTitle={newNews.title}
+                  onImageSelect={(file) => {
+                    if (file && file.url) {
+                      setNewNews({ ...newNews, image: file.url });
+                    }
+                  }}
+                  onImageUpload={(result) => {
+                    if (result && result.url) {
+                      setNewNews({ ...newNews, image: result.url });
+                    }
+                  }}
+                  onError={(error) => {
+                    console.error('Upload failed:', error);
+                    alert('فشل رفع الصورة: ' + error);
+                  }}
+                  placeholder="اختر صورة الخبر أو اسحبها هنا"
+                />
               </div>
               <div className="form-group">
                 <label>
@@ -1579,13 +1955,27 @@ const AdminSettings = () => {
                       <textarea rows="3" value={editingNews.content || ''} onChange={(e)=>setEditingNews({ ...editingNews, content: e.target.value })}></textarea>
                     </div>
                     <div className="form-group">
-                      <label>رابط الصورة</label>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <input type="text" value={editingNews.image || ''} onChange={(e)=>setEditingNews({ ...editingNews, image: e.target.value })} />
-                        <button type="button" className="btn btn-secondary" onClick={() => editNewsFileRef.current?.click()}>رفع صورة</button>
-                      </div>
-                      <input ref={editNewsFileRef} type="file" accept="image/*" style={{ display: 'none' }}
-                        onChange={async (e)=>{ const f=e.target.files&&e.target.files[0]; await uploadImageAndSetUrl(f, (url)=>setEditingNews({ ...editingNews, image: url })); e.target.value=''; }} />
+                      <label>صورة الخبر</label>
+                      <ImageUpload
+                        uploadType="blog_image"
+                        entityType="news"
+                        entityId={editingNews.id}
+                        onImageSelect={(file) => {
+                          if (file && file.url) {
+                            setEditingNews({ ...editingNews, image: file.url });
+                          }
+                        }}
+                        onImageUpload={(result) => {
+                          if (result && result.url) {
+                            setEditingNews({ ...editingNews, image: result.url });
+                          }
+                        }}
+                        onError={(error) => {
+                          console.error('Upload failed:', error);
+                          alert('فشل رفع الصورة: ' + error);
+                        }}
+                        placeholder="اختر صورة الخبر أو اسحبها هنا"
+                      />
                     </div>
                     <div className="form-group">
                       <label>
@@ -1608,6 +1998,25 @@ const AdminSettings = () => {
               </div>
             </div>
           )}
+        </div>
+        )}
+
+        {activeTab === 'images' && (
+        <div className="card">
+          <h2>معرض الصور</h2>
+          <p style={{ marginBottom: '2rem', color: '#64748b' }}>
+            إدارة جميع الصور المرفوعة على الموقع. يمكنك عرض وحذف الصور وتنظيف الصور غير المستخدمة.
+          </p>
+
+          <ImageGallery
+            showDetails={true}
+            showDelete={true}
+            style={{
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '1rem'
+            }}
+          />
         </div>
         )}
       </div>

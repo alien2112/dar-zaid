@@ -29,6 +29,7 @@ const Signup = lazy(() => import('./pages/Signup'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const AdminSettings = lazy(() => import('./pages/AdminSettings'));
 const AdminReports = lazy(() => import('./pages/AdminReports'));
+const AdminFilterManagement = lazy(() => import('./pages/AdminFilterManagement'));
 const PackageDetails = lazy(() => import('./pages/PackageDetails'));
 const Cart = lazy(() => import('./pages/Cart'));
 
@@ -79,6 +80,14 @@ function App() {
                 element={
                   <ProtectedRoute requireAdmin={true}>
                     <AdminReports />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/filters"
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminFilterManagement />
                   </ProtectedRoute>
                 }
               />

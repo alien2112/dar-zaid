@@ -25,12 +25,8 @@ const ImageSlider = () => {
         setSliderImages(response.data.sliders || []);
       } catch (error) {
         console.error('Error loading slider images:', error);
-        // Fallback to default images if API fails
-        setSliderImages([
-          { id: 1, title: 'مرحباً بكم', image_url: '/images/slider/1.jpg' },
-          { id: 2, title: 'مجموعة الكتب', image_url: '/images/slider/2.jpg' },
-          { id: 3, title: 'خدمات النشر', image_url: '/images/slider/3.jpg' }
-        ]);
+        // No fallback data - show empty state
+        setSliderImages([]);
       } finally {
         setLoading(false);
       }
@@ -59,34 +55,36 @@ const ImageSlider = () => {
     <div className="image-slider">
       <Slider {...settings}>
         {sliderImages.map((slide) => (
-          <div key={slide.id}>
+          <div key={slide.id} className="slider-item" style={{ position: 'relative' }}>
             {slide.link_url ? (
               <a href={slide.link_url} target="_blank" rel="noopener noreferrer">
                 <img
                   src={slide.image_url}
                   alt={slide.title}
-                  style={{ width: "100%", height: "400px", objectFit: "cover" }}
+                  style={{ width: "100%", height: "400px", objectFit: "cover", transform: 'scale(1.03)', transition: 'transform 6s ease', }}
                 />
               </a>
             ) : (
               <img
                 src={slide.image_url}
                 alt={slide.title}
-                style={{ width: "100%", height: "400px", objectFit: "cover" }}
+                style={{ width: "100%", height: "400px", objectFit: "cover", transform: 'scale(1.03)', transition: 'transform 6s ease' }}
               />
             )}
+            {/* Gradient overlay for better text contrast */}
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.3) 20%, rgba(0,0,0,0.55) 85%)' }} />
             {slide.title && (
               <div className="slider-caption" style={{
                 position: "absolute",
-                bottom: "20px",
-                left: "20px",
+                bottom: 0,
+                right: 0,
+                left: 0,
                 color: "white",
-                background: "rgba(0,0,0,0.7)",
-                padding: "10px",
-                borderRadius: "5px"
+                padding: "16px 24px",
+                textAlign: 'center'
               }}>
-                <h3>{slide.title}</h3>
-                {slide.subtitle && <p>{slide.subtitle}</p>}
+                <h3 style={{ margin: 0, fontSize: '1.6rem', textShadow: '0 2px 6px rgba(0,0,0,0.6)' }}>{slide.title}</h3>
+                {slide.subtitle && <p style={{ margin: '6px 0 0', opacity: 0.95 }}>{slide.subtitle}</p>}
               </div>
             )}
           </div>

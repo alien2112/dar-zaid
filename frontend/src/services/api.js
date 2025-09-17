@@ -12,10 +12,10 @@ const api = axios.create({
 });
 
 export const apiService = {
-  get: (url) => api.get(url),
-  post: (url, data) => api.post(url, data),
-  put: (url, data) => api.put(url, data),
-  delete: (url) => api.delete(url),
+  get: (url, config) => api.get(url, config),
+  post: (url, data, config) => api.post(url, data, config),
+  put: (url, data, config) => api.put(url, data, config),
+  delete: (url, config) => api.delete(url, config),
 
   // Get publishing packages
   getPackages: (admin = false) => api.get(`/packages${admin ? '?admin=true' : ''}`),
@@ -48,7 +48,7 @@ export const apiService = {
   deleteDynamicCategory: (categoryId) => api.delete(`/dynamic_categories/${categoryId}`),
 
   // Moving Bar
-  getMovingBarText: () => api.get('/moving_bar'),
+  getMovingBarText: (suffix = '') => api.get(`/moving_bar${suffix}`),
   updateMovingBarText: (text) => api.put('/moving_bar', { text }),
 
   // Reviews
@@ -60,6 +60,12 @@ export const apiService = {
   addSliderImage: (payload) => api.post('/slider', payload),
   updateSliderImage: (id, payload) => api.put(`/slider/${id}`, payload),
   deleteSliderImage: (id) => api.delete(`/slider/${id}`),
+
+  // Team photos (admin helpers)
+  getTeamPhotos: (admin = false) => api.get(`/team_photos${admin ? '?admin=true' : ''}`),
+  addTeamPhoto: (payload) => api.post('/team_photos', payload),
+  updateTeamPhoto: (id, payload) => api.put(`/team_photos/${id}`, payload),
+  deleteTeamPhoto: (id) => api.delete(`/team_photos/${id}`),
 
   // Dynamic categories (admin helpers)
   getDynamicCategories: () => api.get('/dynamic_categories'),
@@ -87,7 +93,17 @@ export const apiService = {
   getPaymentHistory: (params) => api.get('/payments/history', { params }),
 
   // Uploads
-  uploadImage: (formData) => api.post('/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  uploadImage: (formData, options = {}) => api.post('/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    ...options
+  }),
+  uploadMultipleImages: (formData, options = {}) => api.post('/upload/multiple', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    ...options
+  }),
+  getImageList: (params) => api.get('/upload/list', { params }),
+  deleteImage: (imageId) => api.delete(`/upload?image_id=${imageId}`),
+  cleanupUnusedImages: () => api.get('/upload/cleanup'),
 
   // Send contact form
   sendContact: (data) => api.post('/contact', data),
@@ -95,6 +111,10 @@ export const apiService = {
   // Authentication
   login: (credentials) => api.post('/auth', credentials),
   signup: (payload) => api.post('/signup', payload).catch((err) => { throw err; }),
+
+  // Signup verification
+  sendSignupVerification: (email) => api.post('/signup/send-verification', { email }),
+  verifyAndSignup: (signupData) => api.post('/signup/verify-and-signup', signupData),
 
   // Reports
   getReports: (type) => api.get(`/reports?type=${type}`),
@@ -110,6 +130,32 @@ export const apiService = {
   setBookOfWeek: (bookData) => api.post('/book_of_week', bookData),
   updateBookOfWeek: (featuredId, bookData) => api.put(`/book_of_week/${featuredId}`, bookData),
   removeBookOfWeek: () => api.delete('/book_of_week'),
+
+  // Business Settings
+  getSettings: () => api.get('/settings'),
+  updateSettings: (settings) => api.post('/settings', { settings }),
+
+  // Payment Methods (robust: try multiple base paths)
+  getPaymentMethods: async (enabled = true) => {
+    const query = enabled ? '?enabled=true' : '';
+    try {
+      return await api.get(`/payment_methods${query}`);
+    } catch (err1) {
+      try {
+        // Try absolute fallback to /backend/api for environments serving PHP directly
+        const altUrl = `${window.location.origin}/backend/api/payment_methods${query}`;
+        return await axios.get(altUrl, { withCredentials: true });
+      } catch (err2) {
+        // Final attempt: direct relative without configured baseURL
+        try {
+          return await axios.get(`/backend/api/payment_methods${query}`, { withCredentials: true });
+        } catch (err3) {
+          throw err3 || err2 || err1;
+        }
+      }
+    }
+  },
+  addPaymentMethod: (methodData) => api.post('/payment_methods', methodData),
 };
 
 export default api;

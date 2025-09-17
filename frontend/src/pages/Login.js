@@ -50,24 +50,24 @@ const Login = () => {
 
   return (
     <div style={{
-      padding: '4rem 0',
+      padding: '2rem 0',
       minHeight: '70vh',
       background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
       display: 'flex',
       alignItems: 'center'
     }}>
       <div className="container">
-        <div style={{ maxWidth: '450px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '450px', margin: '0 auto', padding: '0 1rem' }}>
           <div style={{
             background: 'white',
             borderRadius: '16px',
-            padding: '3rem',
+            padding: '2rem',
             boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
             border: '1px solid #f1f5f9'
           }}>
-            <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
               <div style={{
-                fontSize: '2.5rem',
+                fontSize: '2rem',
                 marginBottom: '1rem',
                 color: '#1e3a8a'
               }}>
@@ -75,20 +75,21 @@ const Login = () => {
               </div>
               <h2 style={{
                 color: '#1e3a8a',
-                fontSize: '2rem',
+                fontSize: 'clamp(1.5rem, 4vw, 2rem)',
                 fontFamily: 'Amiri, serif',
-                marginBottom: '0.5rem'
+                marginBottom: '0.5rem',
+                lineHeight: 1.3
               }}>
                 تسجيل الدخول
               </h2>
-              <p style={{ color: '#64748b', fontSize: '0.95rem' }}>
+              <p style={{ color: '#64748b', fontSize: '0.9rem', lineHeight: 1.5 }}>
                 سجّل دخولك لمتابعة التسوق وإدارة طلباتك
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="modern-form" style={{ padding: 0, boxShadow: 'none', marginBottom: 0 }}>
               <div className="form-group">
-                <label style={{ fontWeight: '500', color: '#374151' }}>البريد الإلكتروني</label>
+                <label style={{ fontWeight: '500', color: '#374151', fontSize: '0.95rem' }}>البريد الإلكتروني</label>
                 <input
                   type="email"
                   name="email"
@@ -98,13 +99,15 @@ const Login = () => {
                   placeholder="أدخل بريدك الإلكتروني"
                   style={{
                     marginTop: '0.5rem',
-                    fontSize: '1rem'
+                    fontSize: '16px', // Prevents zoom on iOS
+                    minHeight: '44px',
+                    padding: '12px 16px'
                   }}
                 />
               </div>
 
               <div className="form-group">
-                <label style={{ fontWeight: '500', color: '#374151' }}>كلمة المرور</label>
+                <label style={{ fontWeight: '500', color: '#374151', fontSize: '0.95rem' }}>كلمة المرور</label>
                 <input
                   type="password"
                   name="password"
@@ -114,7 +117,9 @@ const Login = () => {
                   placeholder="أدخل كلمة المرور"
                   style={{
                     marginTop: '0.5rem',
-                    fontSize: '1rem'
+                    fontSize: '16px', // Prevents zoom on iOS
+                    minHeight: '44px',
+                    padding: '12px 16px'
                   }}
                 />
               </div>
@@ -126,8 +131,9 @@ const Login = () => {
                 style={{
                   width: '100%',
                   padding: '14px 28px',
-                  fontSize: '1.1rem',
-                  marginTop: '1rem'
+                  fontSize: '1rem',
+                  marginTop: '1rem',
+                  minHeight: '44px'
                 }}
               >
                 {isLoading ? (
@@ -150,13 +156,11 @@ const Login = () => {
                 borderRadius: '8px',
                 textAlign: 'center',
                 border: message.includes('نجاح') ? '1px solid #bbf7d0' : '1px solid #fecaca',
-                fontSize: '0.95rem'
+                fontSize: '0.9rem'
               }}>
                 {message}
               </div>
             )}
-
-            {/* Removed trial credentials box */}
 
             <div style={{
               textAlign: 'center',
@@ -165,7 +169,7 @@ const Login = () => {
               borderTop: '1px solid #e2e8f0'
             }}>
               <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>
-                ليس لديك حساب؟ <span onClick={() => navigate('/signup')} style={{ color: '#3b82f6', cursor: 'pointer' }}>إنشاء حساب</span>
+                ليس لديك حساب؟ <span onClick={() => navigate('/signup')} style={{ color: '#3b82f6', cursor: 'pointer', textDecoration: 'underline' }}>إنشاء حساب</span>
               </p>
             </div>
           </div>

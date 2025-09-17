@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { apiService } from '../services/api';
+import { useCart } from '../contexts/CartContext';
 
 const PackageDetails = () => {
   const { id } = useParams();
   const [packageData, setPackageData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { addPackageToCart } = useCart();
 
   useEffect(() => {
     fetchPackageDetails();
@@ -52,6 +54,14 @@ const PackageDetails = () => {
           </h1>
           <div style={{ fontSize: '3rem', color: '#e74c3c', fontWeight: 'bold' }}>
             {packageData.price} {packageData.currency}
+          </div>
+          <div style={{ marginTop: '1rem' }}>
+            <button
+              className="btn btn-primary"
+              onClick={() => addPackageToCart(packageData)}
+            >
+              إضافة الباقة إلى السلة
+            </button>
           </div>
         </div>
 

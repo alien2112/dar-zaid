@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { categoryService } from '../services/categoryService';
 import { apiService } from '../services/api';
 import { useDebounce } from '../utils/performance';
+import ImageUpload from '../components/ImageUpload';
+import CustomLoader from '../components/CustomLoader';
 
 // Book Form Modal Component (moved above to avoid HMR/TDZ issues)
 const BookFormModal = ({ book, categories, onSave, onCancel }) => {
@@ -13,20 +15,22 @@ const BookFormModal = ({ book, categories, onSave, onCancel }) => {
     description: book?.description || '',
     price: book?.price || '',
     category: book?.category || 'أدب',
+    publisher: book?.publisher || '',
     image_url: book?.image_url || '',
     stock_quantity: book?.stock_quantity || '',
     isbn: book?.isbn || '',
     published_date: book?.published_date || '',
-    is_chosen: book?.is_chosen || false,
+    is_chosen: book?.is_chosen || 0,
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const bookData = {
       ...formData,
-      price: parseFloat(formData.price),
-      stock_quantity: parseInt(formData.stock_quantity),
-      is_chosen: !!formData.is_chosen,
+      price: formData.price === '' ? 0 : parseFloat(formData.price),
+      stock_quantity: formData.stock_quantity === '' ? 0 : parseInt(formData.stock_quantity, 10),
+      is_chosen: formData.is_chosen,
+      published_date: formData.published_date ? formData.published_date : null,
     };
 
     if (book) {
@@ -53,7 +57,7 @@ const BookFormModal = ({ book, categories, onSave, onCancel }) => {
       <div style={{
         background: 'white',
         borderRadius: '12px',
-        padding: '2rem',
+        padding: '1.5rem',
         width: '100%',
         maxWidth: '600px',
         maxHeight: '90vh',
@@ -68,7 +72,10 @@ const BookFormModal = ({ book, categories, onSave, onCancel }) => {
         </h2>
 
         <form onSubmit={handleSubmit} className="modern-form" style={{ padding: 0, boxShadow: 'none' }}>
-          <div className="form-grid">
+          <div className="form-grid" style={{
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '1rem'
+          }}>
             <div className="form-group">
               <label>عنوان الكتاب</label>
               <input
@@ -76,6 +83,7 @@ const BookFormModal = ({ book, categories, onSave, onCancel }) => {
                 required
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                style={{ fontSize: '16px', minHeight: '44px' }}
               />
             </div>
 
@@ -86,6 +94,7 @@ const BookFormModal = ({ book, categories, onSave, onCancel }) => {
                 required
                 value={formData.author}
                 onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+                style={{ fontSize: '16px', minHeight: '44px' }}
               />
             </div>
 
@@ -97,6 +106,7 @@ const BookFormModal = ({ book, categories, onSave, onCancel }) => {
                 required
                 value={formData.price}
                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                style={{ fontSize: '16px', minHeight: '44px' }}
               />
             </div>
 
@@ -105,11 +115,22 @@ const BookFormModal = ({ book, categories, onSave, onCancel }) => {
               <select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                style={{ fontSize: '16px', minHeight: '44px' }}
               >
                 {categories.map(category => (
                   <option key={category} value={category}>{category}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="form-group">
+              <label>الناشر</label>
+              <input
+                type="text"
+                value={formData.publisher}
+                onChange={(e) => setFormData({ ...formData, publisher: e.target.value })}
+                style={{ fontSize: '16px', minHeight: '44px' }}
+              />
             </div>
 
             <div className="form-group">
@@ -119,6 +140,7 @@ const BookFormModal = ({ book, categories, onSave, onCancel }) => {
                 required
                 value={formData.stock_quantity}
                 onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
+                style={{ fontSize: '16px', minHeight: '44px' }}
               />
             </div>
 
@@ -128,6 +150,7 @@ const BookFormModal = ({ book, categories, onSave, onCancel }) => {
                 type="text"
                 value={formData.isbn}
                 onChange={(e) => setFormData({ ...formData, isbn: e.target.value })}
+                style={{ fontSize: '16px', minHeight: '44px' }}
               />
             </div>
 
@@ -137,36 +160,49 @@ const BookFormModal = ({ book, categories, onSave, onCancel }) => {
                 type="date"
                 value={formData.published_date}
                 onChange={(e) => setFormData({ ...formData, published_date: e.target.value })}
+                style={{ fontSize: '16px', minHeight: '44px' }}
               />
             </div>
 
-            <div className="form-group">
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <label>صورة الغلاف</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
-                <input
-                  type="url"
-                  placeholder="رابط الصورة (اختياري)"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={async (e) => {
-                    const file = e.target.files && e.target.files[0];
-                    if (!file) return;
-                    const form = new FormData();
-                    form.append('image', file);
-                    try {
-                      const res = await apiService.uploadImage(form);
-                      setFormData({ ...formData, image_url: res.data.url });
-                    } catch (err) {
-                      console.error('Upload failed:', err);
-                      alert('فشل رفع الصورة. See console for details.');
-                    }
-                  }}
-                />
-              </div>
+              <ImageUpload
+                uploadType="book_cover"
+                entityType="book"
+                entityId={book?.id}
+                entityTitle={formData.title}
+                onImageSelect={(file) => {
+                  if (file && file.url) {
+                    setFormData({ ...formData, image_url: file.url });
+                  }
+                }}
+                onImageUpload={(result) => {
+                  if (result && result.url) {
+                    setFormData({ ...formData, image_url: result.url });
+                  }
+                }}
+                onError={(error) => {
+                  console.error('Upload failed:', error);
+                  alert('فشل رفع الصورة: ' + error);
+                }}
+                placeholder="اختر صورة الغلاف أو اسحبها هنا"
+                style={{ marginTop: '0.5rem' }}
+              />
+              {formData.image_url && (
+                <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                  <img
+                    src={formData.image_url}
+                    alt="معاينة صورة الغلاف"
+                    style={{
+                      maxWidth: '150px',
+                      maxHeight: '200px',
+                      border: '2px solid #e2e8f0',
+                      borderRadius: '8px',
+                      objectFit: 'cover'
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -177,16 +213,23 @@ const BookFormModal = ({ book, categories, onSave, onCancel }) => {
               required
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              style={{ fontSize: '16px', minHeight: '120px' }}
             />
           </div>
 
           <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem',
+              fontSize: '1rem',
+              minHeight: '44px'
+            }}>
               <input
                 type="checkbox"
-                checked={formData.is_chosen}
-                onChange={(e) => setFormData({ ...formData, is_chosen: e.target.checked })}
-                style={{ width: 'auto' }}
+                checked={!!formData.is_chosen}
+                onChange={(e) => setFormData({ ...formData, is_chosen: e.target.checked ? 1 : 0 })}
+                style={{ width: 'auto', minHeight: '20px', minWidth: '20px' }}
               />
               هل هو من الكتب المختارة؟
             </label>
@@ -195,18 +238,28 @@ const BookFormModal = ({ book, categories, onSave, onCancel }) => {
           <div style={{
             display: 'flex',
             gap: '1rem',
-            justifyContent: 'flex-end',
-            marginTop: '2rem'
+            justifyContent: 'center',
+            marginTop: '2rem',
+            flexDirection: 'column'
           }}>
+            <button type="submit" className="btn btn-primary" style={{
+              minHeight: '44px',
+              fontSize: '1rem',
+              width: '100%'
+            }}>
+              {book ? 'تحديث' : 'إضافة'}
+            </button>
             <button
               type="button"
               className="btn btn-secondary"
               onClick={onCancel}
+              style={{
+                minHeight: '44px',
+                fontSize: '1rem',
+                width: '100%'
+              }}
             >
               إلغاء
-            </button>
-            <button type="submit" className="btn btn-primary">
-              {book ? 'تحديث' : 'إضافة'}
             </button>
           </div>
         </form>
@@ -324,36 +377,73 @@ const AdminDashboard = () => {
   }, []);
 
   if (loading) {
-    return (
-      <div className="loading">
-        <div className="spinner"></div>
-      </div>
-    );
+    return <CustomLoader />;
   }
 
   return (
     <div className="admin-dashboard">
       <div className="container">
         {/* Dashboard Header */}
-        <div className="dashboard-header">
+        <div className="dashboard-header" style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem',
+          marginBottom: '2rem',
+          padding: '0 1rem'
+        }}>
           <h1 style={{
-            fontSize: '2.5rem',
+            fontSize: 'clamp(1.8rem, 4vw, 2.5rem)',
             color: '#1e3a8a',
             fontFamily: 'Amiri, serif',
-            margin: 0
+            margin: 0,
+            textAlign: 'center'
           }}>
             لوحة الإدارة
           </h1>
-          <div>
-            <Link to="/admin/settings" className="btn btn-secondary" style={{ marginLeft: '1rem' }}>
-              الإعدادات
-            </Link>
-            <Link to="/admin/reports" className="btn btn-secondary" style={{ marginLeft: '1rem' }}>
-              التقارير
-            </Link>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.5rem',
+            alignItems: 'center'
+          }}>
+            <div style={{
+              display: 'flex',
+              gap: '0.5rem',
+              flexWrap: 'wrap',
+              justifyContent: 'center'
+            }}>
+              <Link to="/admin/settings" className="btn btn-secondary" style={{ 
+                minHeight: '44px',
+                padding: '12px 16px',
+                fontSize: '0.9rem'
+              }}>
+                الإعدادات
+              </Link>
+              <Link to="/admin/reports" className="btn btn-secondary" style={{ 
+                minHeight: '44px',
+                padding: '12px 16px',
+                fontSize: '0.9rem'
+              }}>
+                التقارير
+              </Link>
+              <Link to="/admin/filters" className="btn btn-secondary" style={{ 
+                minHeight: '44px',
+                padding: '12px 16px',
+                fontSize: '0.9rem'
+              }}>
+                إدارة الفلاتر
+              </Link>
+            </div>
             <button
               className="btn btn-primary"
               onClick={() => setShowAddForm(true)}
+              style={{
+                minHeight: '44px',
+                padding: '12px 24px',
+                fontSize: '1rem',
+                width: '100%',
+                maxWidth: '300px'
+              }}
             >
               إضافة كتاب جديد
             </button>
@@ -447,18 +537,33 @@ const AdminDashboard = () => {
             </div>
           )}
           {/* Search and Filter */}
-          <div className="search-filter-bar">
+          <div className="search-filter-bar" style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+            marginBottom: '1rem'
+          }}>
             <input
               type="text"
               placeholder="ابحث عن كتاب أو مؤلف أو ISBN..."
               className="search-input"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                fontSize: '16px',
+                minHeight: '44px',
+                padding: '12px 16px'
+              }}
             />
             <select
               className="filter-select"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
+              style={{
+                fontSize: '16px',
+                minHeight: '44px',
+                padding: '12px 16px'
+              }}
             >
               {categories.map(category => (
                 <option key={category} value={category}>{category}</option>
@@ -467,9 +572,16 @@ const AdminDashboard = () => {
           </div>
 
           {/* Books Management Table */}
-          <div className="admin-table">
-            <div className="table-header">
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr', gap: '1rem', alignItems: 'center' }}>
+          <div className="admin-table" style={{ overflowX: 'auto' }}>
+            {/* Desktop Table View */}
+            <div className="table-header" style={{ display: 'none' }}>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr', 
+                gap: '1rem', 
+                alignItems: 'center',
+                minWidth: '800px'
+              }}>
                 <div>الكتاب</div>
                 <div>السعر</div>
                 <div>التصنيف</div>
@@ -480,52 +592,115 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {filteredBooks.map((book) => (
-              <div key={book.id} className="table-row">
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr', gap: '1rem', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>{book.title} {book.is_chosen && '⭐'}</div>
-                    <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{book.author}</div>
-                  </div>
-                  <div style={{ fontWeight: '600', color: '#1e3a8a' }}>{book.price} ريال</div>
-                  <div>
-                    <span style={{
-                      background: '#f3f4f6',
-                      color: '#6b7280',
-                      padding: '0.25rem 0.75rem',
-                      borderRadius: '20px',
-                      fontSize: '0.75rem'
-                    }}>
-                      {book.category}
-                    </span>
-                  </div>
-                  <div style={{
-                    color: book.stock_quantity === 0 ? '#ef4444' : book.stock_quantity < 10 ? '#f59e0b' : '#10b981',
-                    fontWeight: '600'
+            {/* Mobile Card View */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {filteredBooks.map((book) => (
+                <div key={book.id} className="card" style={{ 
+                  padding: '1rem',
+                  margin: 0
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    gap: '0.75rem'
                   }}>
-                    {book.stock_quantity}
-                  </div>
-                  <div style={{ fontSize: '0.875rem', fontFamily: 'monospace' }}>{book.isbn}</div>
-                  <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                    {new Date(book.published_date).toLocaleDateString('ar-SA')}
-                  </div>
-                  <div className="table-actions">
-                    <button
-                      className="btn btn-small btn-edit"
-                      onClick={() => setEditingBook(book)}
-                    >
-                      تعديل
-                    </button>
-                    <button
-                      className="btn btn-small btn-delete"
-                      onClick={() => handleDeleteBook(book.id)}
-                    >
-                      حذف
-                    </button>
+                    <div>
+                      <div style={{ 
+                        fontWeight: '600', 
+                        marginBottom: '0.25rem',
+                        fontSize: '1.1rem',
+                        color: '#1e3a8a'
+                      }}>
+                        {book.title} {book.is_chosen && '⭐'}
+                      </div>
+                      <div style={{ 
+                        color: '#6b7280', 
+                        fontSize: '0.9rem',
+                        marginBottom: '0.5rem'
+                      }}>
+                        {book.author}
+                      </div>
+                    </div>
+                    
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                      gap: '0.5rem',
+                      fontSize: '0.85rem'
+                    }}>
+                      <div>
+                        <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>السعر:</span>
+                        <div style={{ fontWeight: '600', color: '#1e3a8a' }}>{book.price} ريال</div>
+                      </div>
+                      <div>
+                        <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>التصنيف:</span>
+                        <div>
+                          <span style={{
+                            background: '#f3f4f6',
+                            color: '#6b7280',
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '12px',
+                            fontSize: '0.75rem'
+                          }}>
+                            {book.category}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>المخزون:</span>
+                        <div style={{
+                          color: book.stock_quantity === 0 ? '#ef4444' : book.stock_quantity < 10 ? '#f59e0b' : '#10b981',
+                          fontWeight: '600'
+                        }}>
+                          {book.stock_quantity}
+                        </div>
+                      </div>
+                      <div>
+                        <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>ISBN:</span>
+                        <div style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{book.isbn}</div>
+                      </div>
+                    </div>
+                    
+                    <div style={{ 
+                      fontSize: '0.85rem', 
+                      color: '#6b7280',
+                      marginTop: '0.5rem'
+                    }}>
+                      تاريخ النشر: {new Date(book.published_date).toLocaleDateString('ar-SA')}
+                    </div>
+                    
+                    <div style={{
+                      display: 'flex',
+                      gap: '0.5rem',
+                      marginTop: '0.5rem'
+                    }}>
+                      <button
+                        className="btn btn-small btn-edit"
+                        onClick={() => setEditingBook(book)}
+                        style={{
+                          flex: 1,
+                          minHeight: '36px',
+                          fontSize: '0.9rem'
+                        }}
+                      >
+                        تعديل
+                      </button>
+                      <button
+                        className="btn btn-small btn-delete"
+                        onClick={() => handleDeleteBook(book.id)}
+                        style={{
+                          flex: 1,
+                          minHeight: '36px',
+                          fontSize: '0.9rem'
+                        }}
+                      >
+                        حذف
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           {/* No Results */}

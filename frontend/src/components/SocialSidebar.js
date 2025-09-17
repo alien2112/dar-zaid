@@ -3,10 +3,10 @@ import React from 'react';
 const SocialSidebar = () => {
   const links = [
     { name: 'Facebook', href: 'https://facebook.com/yourpage', color: '#1877F2', label: 'فيسبوك', icon: 'f' },
-    { name: 'X', href: 'https://x.com/yourhandle', color: '#000000', label: 'إكس', icon: 'x' },
-    { name: 'Instagram', href: 'https://instagram.com/yourpage', color: '#E4405F', label: 'انستقرام', icon: 'ig' },
-    { name: 'WhatsApp', href: 'https://wa.me/+966500000000', color: '#25D366', label: 'واتساب', icon: 'wa' },
-    { name: 'TikTok', href: 'https://www.tiktok.com/@yourhandle', color: '#010101', label: 'تيك توك', icon: 'tt' },
+    { name: 'X', href: 'https://x.com/yourhandle', color: '#000000', label: 'إكس', icon: 'X' },
+    { name: 'Instagram', href: 'https://instagram.com/yourpage', color: '#E4405F', label: 'انستقرام', icon: '📷' },
+    { name: 'WhatsApp', href: 'https://wa.me/+966500000000', color: '#25D366', label: 'واتساب', icon: '💬' },
+    { name: 'TikTok', href: 'https://www.tiktok.com/@yourhandle', color: '#000000', label: 'تيك توك', icon: '♪' },
   ];
 
   return (
@@ -30,6 +30,7 @@ const SocialSidebar = () => {
 };
 
 export default SocialSidebar;
+
 
 
 

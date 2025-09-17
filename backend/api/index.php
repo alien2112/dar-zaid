@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit(0);
 }
 
-include_once '../config/database.php';
+include_once __DIR__ . '/../config/database.php';
 
 $database = new Database();
 $db = $database->getConnection();
@@ -78,6 +78,9 @@ switch($endpoint) {
     case 'slider':
         include 'slider.php';
         break;
+    case 'team_photos':
+        include 'team_photos.php';
+        break;
     case 'dynamic_categories':
         include 'dynamic_categories.php';
         break;
@@ -95,6 +98,15 @@ switch($endpoint) {
         break;
     case 'orders':
         include 'orders.php';
+        break;
+    case 'settings':
+        include 'settings.php';
+        break;
+    case 'payments':
+        include 'payments.php';
+        break;
+    case 'payment_methods':
+        include 'payment_methods.php';
         break;
     default:
         http_response_code(404);

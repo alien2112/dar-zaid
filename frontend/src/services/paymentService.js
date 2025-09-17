@@ -1,152 +1,5 @@
 import { apiService } from './api';
 
-// Payment method configurations
-export const PAYMENT_METHODS = {
-  STC_PAY: {
-    id: 'stc_pay',
-    name: 'STC Pay',
-    nameAr: 'إس تي سي باي',
-    icon: '/images/payments/stc-pay.svg',
-    type: 'digital_wallet',
-    enabled: true,
-    supportedCurrencies: ['SAR'],
-    minAmount: 1,
-    maxAmount: 10000,
-    description: 'ادفع بسهولة باستخدام STC Pay',
-    processingTime: 'فوري'
-  },
-  TAMARA: {
-    id: 'tamara',
-    name: 'Tamara',
-    nameAr: 'تمارا',
-    icon: '/images/payments/tamara.svg',
-    type: 'bnpl', // Buy Now Pay Later
-    enabled: true,
-    supportedCurrencies: ['SAR'],
-    minAmount: 50,
-    maxAmount: 5000,
-    description: 'اشتري الآن وادفع لاحقاً على 3 دفعات',
-    processingTime: 'فوري',
-    installments: [3, 6]
-  },
-  TABBY: {
-    id: 'tabby',
-    name: 'Tabby',
-    nameAr: 'تابي',
-    icon: '/images/payments/tabby.svg',
-    type: 'bnpl',
-    enabled: true,
-    supportedCurrencies: ['SAR'],
-    minAmount: 30,
-    maxAmount: 3000,
-    description: 'اشتري الآن وادفع لاحقاً على 4 دفعات',
-    processingTime: 'فوري',
-    installments: [4]
-  },
-  GOOGLE_PAY: {
-    id: 'google_pay',
-    name: 'Google Pay',
-    nameAr: 'جوجل باي',
-    icon: '/images/payments/google-pay.svg',
-    type: 'digital_wallet',
-    enabled: true,
-    supportedCurrencies: ['SAR', 'USD'],
-    minAmount: 1,
-    maxAmount: 10000,
-    description: 'ادفع بأمان باستخدام Google Pay',
-    processingTime: 'فوري'
-  },
-  APPLE_PAY: {
-    id: 'apple_pay',
-    name: 'Apple Pay',
-    nameAr: 'آبل باي',
-    icon: '/images/payments/apple-pay.svg',
-    type: 'digital_wallet',
-    enabled: true,
-    supportedCurrencies: ['SAR', 'USD'],
-    minAmount: 1,
-    maxAmount: 10000,
-    description: 'ادفع بسهولة باستخدام Apple Pay',
-    processingTime: 'فوري'
-  },
-  BANK_TRANSFER: {
-    id: 'bank_transfer',
-    name: 'Bank Transfer',
-    nameAr: 'تحويل بنكي',
-    icon: '/images/payments/bank-transfer.svg',
-    type: 'bank_transfer',
-    enabled: true,
-    supportedCurrencies: ['SAR'],
-    minAmount: 10,
-    maxAmount: 50000,
-    description: 'تحويل مباشر من البنك الخاص بك',
-    processingTime: '1-3 أيام عمل'
-  },
-  VISA: {
-    id: 'visa',
-    name: 'Visa',
-    nameAr: 'فيزا',
-    icon: '/images/payments/visa.svg',
-    type: 'credit_debit',
-    enabled: true,
-    supportedCurrencies: ['SAR', 'USD', 'EUR'],
-    minAmount: 1,
-    maxAmount: 10000,
-    description: 'ادفع باستخدام بطاقة الفيزا',
-    processingTime: 'فوري'
-  },
-  MASTERCARD: {
-    id: 'mastercard',
-    name: 'Mastercard',
-    nameAr: 'ماستركارد',
-    icon: '/images/payments/mastercard.svg',
-    type: 'credit_debit',
-    enabled: true,
-    supportedCurrencies: ['SAR', 'USD', 'EUR'],
-    minAmount: 1,
-    maxAmount: 10000,
-    description: 'ادفع باستخدام بطاقة الماستركارد',
-    processingTime: 'فوري'
-  },
-  MADA: {
-    id: 'mada',
-    name: 'mada',
-    nameAr: 'مدى',
-    icon: '/images/payments/mada.svg',
-    type: 'debit_only',
-    enabled: true,
-    supportedCurrencies: ['SAR'],
-    minAmount: 1,
-    maxAmount: 10000,
-    description: 'ادفع باستخدام بطاقة مدى السعودية',
-    processingTime: 'فوري'
-  }
-};
-
-// Payment categories for UI grouping
-export const PAYMENT_CATEGORIES = {
-  DIGITAL_WALLETS: {
-    id: 'digital_wallets',
-    name: 'المحافظ الرقمية',
-    methods: ['stc_pay', 'google_pay', 'apple_pay']
-  },
-  BUY_NOW_PAY_LATER: {
-    id: 'bnpl',
-    name: 'اشتري الآن وادفع لاحقاً',
-    methods: ['tamara', 'tabby']
-  },
-  CARDS: {
-    id: 'cards',
-    name: 'البطاقات البنكية',
-    methods: ['visa', 'mastercard', 'mada']
-  },
-  BANK_TRANSFER: {
-    id: 'bank_transfer',
-    name: 'التحويل البنكي',
-    methods: ['bank_transfer']
-  }
-};
-
 class PaymentService {
   constructor() {
     this.config = {
@@ -154,15 +7,67 @@ class PaymentService {
       currency: 'SAR',
       locale: 'ar-SA'
     };
+    this.paymentMethods = [];
+    this.paymentCategories = {
+      DIGITAL_WALLETS: {
+        id: 'digital_wallets',
+        name: 'المحافظ الرقمية',
+        methods: ['stc_pay', 'google_pay', 'apple_pay', 'paypal', 'urpay', 'benefit']
+      },
+      BUY_NOW_PAY_LATER: {
+        id: 'bnpl',
+        name: 'اشتري الآن وادفع لاحقاً',
+        methods: ['tamara', 'tabby']
+      },
+      CARDS: {
+        id: 'cards',
+        name: 'البطاقات البنكية',
+        methods: ['visa', 'mastercard', 'mada', 'amex', 'unionpay']
+      },
+      BANK_TRANSFER: {
+        id: 'bank_transfer',
+        name: 'التحويل البنكي',
+        methods: ['bank_transfer', 'sadad', 'fawry']
+      }
+    };
+  }
+
+  // Load payment methods from backend
+  async loadPaymentMethods() {
+    try {
+      const response = await apiService.getPaymentMethods(true);
+      // Normalize across possible backends: { payment_methods: [...] } or array directly
+      const raw = response?.data;
+      this.paymentMethods = Array.isArray(raw)
+        ? raw
+        : (raw?.payment_methods || raw?.methods || []);
+      return this.paymentMethods;
+    } catch (error) {
+      console.error('Error loading payment methods:', error);
+      this.paymentMethods = [];
+      return [];
+    }
   }
 
   // Get available payment methods for a given amount and currency
   getAvailablePaymentMethods(amount, currency = 'SAR') {
-    return Object.values(PAYMENT_METHODS).filter(method => {
-      return method.enabled &&
-             method.supportedCurrencies.includes(currency) &&
-             amount >= method.minAmount &&
-             amount <= method.maxAmount;
+    if (this.paymentMethods.length === 0) {
+      return [];
+    }
+
+    const isAmountProvided = typeof amount === 'number' && !Number.isNaN(amount) && amount > 0;
+
+    return this.paymentMethods.filter(method => {
+      const baseMatch = method.enabled && method.supportedCurrencies.includes(currency);
+      if (!isAmountProvided) {
+        // When amount is not yet known, return all enabled methods for the currency
+        return baseMatch;
+      }
+      return (
+        baseMatch &&
+        amount >= method.minAmount &&
+        amount <= method.maxAmount
+      );
     });
   }
 
@@ -171,7 +76,7 @@ class PaymentService {
     const availableMethods = this.getAvailablePaymentMethods(amount, currency);
     const categorized = {};
 
-    Object.values(PAYMENT_CATEGORIES).forEach(category => {
+    Object.values(this.paymentCategories).forEach(category => {
       categorized[category.id] = {
         ...category,
         methods: category.methods
@@ -313,11 +218,55 @@ class PaymentService {
     });
   }
 
-  // Card payment methods (Visa, Mastercard, mada)
+  // Card payment methods (Visa, Mastercard, mada, Amex, UnionPay)
   async initiateCardPayment(paymentMethodId, orderData, cardDetails) {
     return this.initializePayment(paymentMethodId, {
       ...orderData,
       card_details: cardDetails,
+      success_url: `${window.location.origin}/payment/success`,
+      failure_url: `${window.location.origin}/payment/failure`
+    });
+  }
+
+  // PayPal specific methods
+  async initiatePayPalPayment(orderData) {
+    return this.initializePayment('paypal', {
+      ...orderData,
+      success_url: `${window.location.origin}/payment/success`,
+      failure_url: `${window.location.origin}/payment/failure`,
+      cancel_url: `${window.location.origin}/payment/cancel`
+    });
+  }
+
+  // Sadad specific methods
+  async initiateSadadPayment(orderData) {
+    return this.initializePayment('sadad', {
+      ...orderData,
+      callback_url: `${window.location.origin}/payment/callback/sadad`
+    });
+  }
+
+  // Fawry specific methods
+  async initiateFawryPayment(orderData) {
+    return this.initializePayment('fawry', {
+      ...orderData,
+      callback_url: `${window.location.origin}/payment/callback/fawry`
+    });
+  }
+
+  // UrPay specific methods
+  async initiateUrPayPayment(orderData) {
+    return this.initializePayment('urpay', {
+      ...orderData,
+      success_url: `${window.location.origin}/payment/success`,
+      failure_url: `${window.location.origin}/payment/failure`
+    });
+  }
+
+  // Benefit specific methods
+  async initiateBenefitPayment(orderData) {
+    return this.initializePayment('benefit', {
+      ...orderData,
       success_url: `${window.location.origin}/payment/success`,
       failure_url: `${window.location.origin}/payment/failure`
     });
@@ -333,7 +282,7 @@ class PaymentService {
   }
 
   validatePaymentData(paymentMethodId, paymentData) {
-    const method = PAYMENT_METHODS[paymentMethodId.toUpperCase()];
+    const method = this.paymentMethods.find(m => m.id === paymentMethodId);
     if (!method) {
       throw new Error('Invalid payment method');
     }
@@ -351,8 +300,8 @@ class PaymentService {
 
   // Get installment options for BNPL methods
   getInstallmentOptions(paymentMethodId, amount) {
-    const method = PAYMENT_METHODS[paymentMethodId.toUpperCase()];
-    if (!method || method.type !== 'bnpl') {
+    const method = this.paymentMethods.find(m => m.id === paymentMethodId);
+    if (!method || method.type !== 'bnpl' || !method.installments) {
       return [];
     }
 

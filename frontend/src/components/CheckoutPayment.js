@@ -17,6 +17,9 @@ const CheckoutPayment = ({ orderData, onPaymentSuccess, onPaymentError }) => {
     (total, item) => total + (item.price * item.quantity), 0
   ) + (orderData.shipping_cost || 0) + (orderData.tax_amount || 0);
 
+  console.log('CheckoutPayment: Total amount calculated:', totalAmount);
+  console.log('CheckoutPayment: Order data:', orderData);
+
   const handleMethodSelect = (method) => {
     setSelectedPaymentMethod(method);
     setError(null);
@@ -71,9 +74,31 @@ const CheckoutPayment = ({ orderData, onPaymentSuccess, onPaymentError }) => {
           paymentResponse = await paymentService.initiateBankTransfer(paymentData);
           break;
 
+        case 'sadad':
+          paymentResponse = await paymentService.initiateSadadPayment(paymentData);
+          break;
+
+        case 'fawry':
+          paymentResponse = await paymentService.initiateFawryPayment(paymentData);
+          break;
+
+        case 'paypal':
+          paymentResponse = await paymentService.initiatePayPalPayment(paymentData);
+          break;
+
+        case 'urpay':
+          paymentResponse = await paymentService.initiateUrPayPayment(paymentData);
+          break;
+
+        case 'benefit':
+          paymentResponse = await paymentService.initiateBenefitPayment(paymentData);
+          break;
+
         case 'visa':
         case 'mastercard':
         case 'mada':
+        case 'amex':
+        case 'unionpay':
           // For card payments, we might need additional card details form
           paymentResponse = await handleCardPayment(method, paymentData);
           break;

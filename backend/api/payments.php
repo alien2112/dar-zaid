@@ -1,5 +1,5 @@
 <?php
-require_once '../config/database.php';
+require_once __DIR__ . '/../config/database.php';
 
 header('Content-Type: application/json');
 $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
@@ -18,7 +18,7 @@ if ($method === 'OPTIONS') {
 $database = new Database();
 $db = $database->getConnection();
 
-// Create payments table if not exists
+// Create payments table if not exists with idempotency support
 $db->exec("CREATE TABLE IF NOT EXISTS payments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     transaction_id VARCHAR(255) UNIQUE NOT NULL,
@@ -31,15 +31,43 @@ $db->exec("CREATE TABLE IF NOT EXISTS payments (
     provider_response JSON,
     customer_info JSON,
     payment_details JSON,
+    idempotency_key VARCHAR(255),
+    webhook_verified BOOLEAN DEFAULT FALSE,
+    webhook_signature VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_transaction_id (transaction_id),
     INDEX idx_order_id (order_id),
     INDEX idx_status (status),
-    INDEX idx_payment_method (payment_method)
+    INDEX idx_payment_method (payment_method),
+    INDEX idx_idempotency_key (idempotency_key),
+    INDEX idx_provider_transaction_id (provider_transaction_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-// Create orders table if not exists
+// Create books table if not exists with stock tracking
+$db->exec("CREATE TABLE IF NOT EXISTS books (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    author VARCHAR(255) NOT NULL,
+    description TEXT,
+    price DECIMAL(10, 2) NOT NULL,
+    category VARCHAR(100),
+    image_url VARCHAR(500),
+    isbn VARCHAR(20),
+    stock_quantity INT NOT NULL DEFAULT 0,
+    reserved_quantity INT NOT NULL DEFAULT 0,
+    is_chosen BOOLEAN DEFAULT FALSE,
+    published_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_title (title),
+    INDEX idx_author (author),
+    INDEX idx_category (category),
+    INDEX idx_isbn (isbn),
+    INDEX idx_stock (stock_quantity)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+// Create orders table if not exists with improved structure
 $db->exec("CREATE TABLE IF NOT EXISTS orders (
     id INT AUTO_INCREMENT PRIMARY KEY,
     order_id VARCHAR(255) UNIQUE NOT NULL,
@@ -53,15 +81,18 @@ $db->exec("CREATE TABLE IF NOT EXISTS orders (
     tax_amount DECIMAL(10, 2) DEFAULT 0,
     total_amount DECIMAL(10, 2) NOT NULL,
     currency VARCHAR(3) DEFAULT 'SAR',
-    status ENUM('pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled') DEFAULT 'pending',
+    status ENUM('pending', 'paid', 'processing', 'shipped', 'completed', 'cancelled') DEFAULT 'pending',
     payment_status ENUM('pending', 'paid', 'failed', 'refunded') DEFAULT 'pending',
+    idempotency_key VARCHAR(255) UNIQUE,
+    stock_reserved BOOLEAN DEFAULT TRUE,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_order_id (order_id),
     INDEX idx_customer_id (customer_id),
     INDEX idx_status (status),
-    INDEX idx_payment_status (payment_status)
+    INDEX idx_payment_status (payment_status),
+    INDEX idx_idempotency_key (idempotency_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
 $request_uri = $_SERVER['REQUEST_URI'];
@@ -111,14 +142,28 @@ function handlePaymentInitialization($db) {
             return;
         }
 
+        // Generate idempotency key if not provided
+        if (!isset($data['idempotency_key'])) {
+            $data['idempotency_key'] = 'idem_' . time() . '_' . uniqid();
+        }
+
         $payment_method = $data['payment_method'];
         $amount = (float)$data['amount'];
         $currency = $data['currency'] ?? 'SAR';
         $order_id = $data['order_id'] ?? 'order_' . time();
         $transaction_id = 'txn_' . time() . '_' . uniqid();
 
-        // Create order if it doesn't exist
-        createOrder($db, $data);
+        // Create order with transaction and stock validation
+        $order_result = createOrderWithTransaction($db, $data);
+        if (isset($order_result['existing']) && $order_result['existing']) {
+            // Return existing order info for idempotent request
+            echo json_encode([
+                'status' => 'existing',
+                'order_id' => $order_result['order_id'],
+                'message' => 'Order already exists for this idempotency key'
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
 
         // Create payment record
         $stmt = $db->prepare(
@@ -151,47 +196,115 @@ function handlePaymentInitialization($db) {
     }
 }
 
-function createOrder($db, $data) {
-    $order_id = $data['order_id'] ?? 'order_' . time();
+function createOrderWithTransaction($db, $data) {
+    $order_id = $data['order_id'] ?? 'order_' . time() . '_' . uniqid();
+    $idempotency_key = $data['idempotency_key'] ?? null;
 
-    // Check if order already exists
-    $stmt = $db->prepare('SELECT id FROM orders WHERE order_id = :order_id');
-    $stmt->execute(['order_id' => $order_id]);
+    // Start database transaction
+    $db->beginTransaction();
 
-    if ($stmt->fetch()) {
-        return; // Order already exists
-    }
+    try {
+        // Check for idempotency - if order with this key exists, return existing order
+        if ($idempotency_key) {
+            $stmt = $db->prepare('SELECT order_id, status FROM orders WHERE idempotency_key = :key FOR UPDATE');
+            $stmt->execute(['key' => $idempotency_key]);
+            $existing = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    $subtotal = 0;
-    if (isset($data['items']) && is_array($data['items'])) {
-        foreach ($data['items'] as $item) {
-            $subtotal += (float)($item['price'] ?? 0) * (int)($item['quantity'] ?? 1);
+            if ($existing) {
+                $db->commit();
+                return ['order_id' => $existing['order_id'], 'status' => $existing['status'], 'existing' => true];
+            }
         }
+
+        // Validate and calculate totals server-side
+        $calculated_subtotal = 0;
+        $validated_items = [];
+
+        if (isset($data['items']) && is_array($data['items'])) {
+            foreach ($data['items'] as $item) {
+                $book_id = (int)($item['id'] ?? 0);
+                $quantity = (int)($item['quantity'] ?? 1);
+
+                if ($book_id <= 0 || $quantity <= 0) {
+                    throw new Exception('Invalid item ID or quantity');
+                }
+
+                // Lock the book row and check stock with FOR UPDATE
+                $bookStmt = $db->prepare('SELECT id, title, price, stock_quantity FROM books WHERE id = :id FOR UPDATE');
+                $bookStmt->execute(['id' => $book_id]);
+                $book = $bookStmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$book) {
+                    throw new Exception('Book not found: ' . $book_id);
+                }
+
+                if ($book['stock_quantity'] < $quantity) {
+                    throw new Exception('Insufficient stock for book: ' . $book['title'] . '. Available: ' . $book['stock_quantity']);
+                }
+
+                $item_total = (float)$book['price'] * $quantity;
+                $calculated_subtotal += $item_total;
+
+                $validated_items[] = [
+                    'id' => $book_id,
+                    'title' => $book['title'],
+                    'price' => (float)$book['price'],
+                    'quantity' => $quantity,
+                    'total' => $item_total
+                ];
+
+                // Reserve stock (reduce immediately during order creation)
+                $updateStmt = $db->prepare('UPDATE books SET stock_quantity = stock_quantity - :quantity WHERE id = :id');
+                $updateStmt->execute(['quantity' => $quantity, 'id' => $book_id]);
+            }
+        }
+
+        $shipping_cost = (float)($data['shipping_cost'] ?? 0);
+        $tax_amount = (float)($data['tax_amount'] ?? 0);
+        $calculated_total = $calculated_subtotal + $shipping_cost + $tax_amount;
+
+        // Validate client-provided total matches server calculation
+        $client_total = (float)($data['total'] ?? 0);
+        if (abs($calculated_total - $client_total) > 0.01) {
+            throw new Exception('Total amount mismatch. Expected: ' . $calculated_total . ', Received: ' . $client_total);
+        }
+
+        // Create order record
+        $stmt = $db->prepare(
+            'INSERT INTO orders (order_id, customer_info, items, shipping_address, billing_address,
+                               subtotal, shipping_cost, tax_amount, total_amount, currency, status, payment_status, idempotency_key)
+             VALUES (:order_id, :customer_info, :items, :shipping_address, :billing_address,
+                     :subtotal, :shipping_cost, :tax_amount, :total_amount, :currency, :status, :payment_status, :idempotency_key)'
+        );
+
+        $stmt->execute([
+            'order_id' => $order_id,
+            'customer_info' => json_encode($data['customer_info'] ?? []),
+            'items' => json_encode($validated_items),
+            'shipping_address' => json_encode($data['shipping_address'] ?? []),
+            'billing_address' => json_encode($data['billing_address'] ?? []),
+            'subtotal' => $calculated_subtotal,
+            'shipping_cost' => $shipping_cost,
+            'tax_amount' => $tax_amount,
+            'total_amount' => $calculated_total,
+            'currency' => $data['currency'] ?? 'SAR',
+            'status' => 'pending',
+            'payment_status' => 'pending',
+            'idempotency_key' => $idempotency_key
+        ]);
+
+        $db->commit();
+        return ['order_id' => $order_id, 'status' => 'pending', 'total' => $calculated_total];
+
+    } catch (Exception $e) {
+        $db->rollback();
+        throw $e;
     }
+}
 
-    $shipping_cost = (float)($data['shipping_cost'] ?? 0);
-    $tax_amount = (float)($data['tax_amount'] ?? 0);
-    $total_amount = $subtotal + $shipping_cost + $tax_amount;
-
-    $stmt = $db->prepare(
-        'INSERT INTO orders (order_id, customer_info, items, shipping_address, billing_address,
-                           subtotal, shipping_cost, tax_amount, total_amount, currency)
-         VALUES (:order_id, :customer_info, :items, :shipping_address, :billing_address,
-                 :subtotal, :shipping_cost, :tax_amount, :total_amount, :currency)'
-    );
-
-    $stmt->execute([
-        'order_id' => $order_id,
-        'customer_info' => json_encode($data['customer_info'] ?? []),
-        'items' => json_encode($data['items'] ?? []),
-        'shipping_address' => json_encode($data['shipping_address'] ?? []),
-        'billing_address' => json_encode($data['billing_address'] ?? []),
-        'subtotal' => $subtotal,
-        'shipping_cost' => $shipping_cost,
-        'tax_amount' => $tax_amount,
-        'total_amount' => $total_amount,
-        'currency' => $data['currency'] ?? 'SAR'
-    ]);
+function createOrder($db, $data) {
+    // Legacy function - redirect to new transactional version
+    return createOrderWithTransaction($db, $data);
 }
 
 function routeToPaymentProvider($payment_method, $transaction_id, $data) {
@@ -217,7 +330,24 @@ function routeToPaymentProvider($payment_method, $transaction_id, $data) {
         case 'visa':
         case 'mastercard':
         case 'mada':
+        case 'amex':
+        case 'unionpay':
             return initializeCardPayment($payment_method, $transaction_id, $data);
+
+        case 'paypal':
+            return initializePayPal($transaction_id, $data);
+
+        case 'sadad':
+            return initializeSadad($transaction_id, $data);
+
+        case 'fawry':
+            return initializeFawry($transaction_id, $data);
+
+        case 'urpay':
+            return initializeUrPay($transaction_id, $data);
+
+        case 'benefit':
+            return initializeBenefit($transaction_id, $data);
 
         default:
             throw new Exception('Unsupported payment method: ' . $payment_method);
@@ -318,6 +448,66 @@ function initializeCardPayment($payment_method, $transaction_id, $data) {
     ];
 }
 
+function initializePayPal($transaction_id, $data) {
+    // TODO: Integrate with PayPal API
+    // This is a placeholder - replace with actual PayPal integration
+    return [
+        'status' => 'redirect',
+        'redirect_url' => 'https://www.paypal.com/checkout?ref=' . $transaction_id,
+        'transaction_id' => $transaction_id,
+        'provider' => 'paypal',
+        'message' => 'Redirecting to PayPal'
+    ];
+}
+
+function initializeSadad($transaction_id, $data) {
+    // TODO: Integrate with Sadad API
+    // This is a placeholder - replace with actual Sadad integration
+    return [
+        'status' => 'redirect',
+        'redirect_url' => 'https://sadad.com.sa/payment?ref=' . $transaction_id,
+        'transaction_id' => $transaction_id,
+        'provider' => 'sadad',
+        'message' => 'Redirecting to Sadad'
+    ];
+}
+
+function initializeFawry($transaction_id, $data) {
+    // TODO: Integrate with Fawry API
+    // This is a placeholder - replace with actual Fawry integration
+    return [
+        'status' => 'redirect',
+        'redirect_url' => 'https://fawry.com/payment?ref=' . $transaction_id,
+        'transaction_id' => $transaction_id,
+        'provider' => 'fawry',
+        'message' => 'Redirecting to Fawry'
+    ];
+}
+
+function initializeUrPay($transaction_id, $data) {
+    // TODO: Integrate with UrPay API
+    // This is a placeholder - replace with actual UrPay integration
+    return [
+        'status' => 'redirect',
+        'redirect_url' => 'https://urpay.com.sa/payment?ref=' . $transaction_id,
+        'transaction_id' => $transaction_id,
+        'provider' => 'urpay',
+        'message' => 'Redirecting to UrPay'
+    ];
+}
+
+function initializeBenefit($transaction_id, $data) {
+    // TODO: Integrate with Benefit API
+    // This is a placeholder - replace with actual Benefit integration
+    return [
+        'status' => 'redirect',
+        'redirect_url' => 'https://benefit.com.sa/payment?ref=' . $transaction_id,
+        'transaction_id' => $transaction_id,
+        'provider' => 'benefit',
+        'message' => 'Redirecting to Benefit'
+    ];
+}
+
 function handlePaymentProcessing($db) {
     // This would handle the actual payment processing
     // For now, it's a placeholder
@@ -326,21 +516,59 @@ function handlePaymentProcessing($db) {
 
 function handlePaymentCallback($db) {
     try {
-        $data = json_decode(file_get_contents('php://input'), true);
+        $raw_payload = file_get_contents('php://input');
+        $data = json_decode($raw_payload, true);
+        $headers = getallheaders();
 
-        // Process callback from payment providers
-        // This is where you'd verify the payment status with the provider
-        // and update your database accordingly
+        // Verify webhook authenticity (implement per provider)
+        $webhook_signature = $headers['X-Webhook-Signature'] ?? $headers['x-webhook-signature'] ?? '';
+        if (!verifyWebhookSignature($raw_payload, $webhook_signature)) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Invalid webhook signature'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
 
         $transaction_id = $data['transaction_id'] ?? '';
         $status = $data['status'] ?? 'failed';
         $provider_transaction_id = $data['provider_transaction_id'] ?? '';
         $provider_response = $data;
 
-        if ($transaction_id) {
+        if (!$transaction_id) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Transaction ID required'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        // Start transaction for atomic payment update
+        $db->beginTransaction();
+
+        try {
+            // Check for idempotent processing (avoid duplicate webhook processing)
+            $checkStmt = $db->prepare(
+                'SELECT id, status FROM payments WHERE transaction_id = :transaction_id FOR UPDATE'
+            );
+            $checkStmt->execute(['transaction_id' => $transaction_id]);
+            $payment = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$payment) {
+                $db->rollback();
+                http_response_code(404);
+                echo json_encode(['error' => 'Payment not found'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            // Prevent duplicate processing
+            if ($payment['status'] === 'completed' && $status === 'completed') {
+                $db->commit();
+                echo json_encode(['status' => 'success', 'message' => 'Already processed'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            // Update payment status
             $stmt = $db->prepare(
                 'UPDATE payments SET status = :status, provider_transaction_id = :provider_id,
-                                   provider_response = :provider_response, updated_at = CURRENT_TIMESTAMP
+                                   provider_response = :provider_response, webhook_verified = TRUE,
+                                   webhook_signature = :signature, updated_at = CURRENT_TIMESTAMP
                  WHERE transaction_id = :transaction_id'
             );
 
@@ -348,24 +576,79 @@ function handlePaymentCallback($db) {
                 'status' => $status,
                 'provider_id' => $provider_transaction_id,
                 'provider_response' => json_encode($provider_response),
+                'signature' => $webhook_signature,
                 'transaction_id' => $transaction_id
             ]);
 
-            // Update order status if payment is completed
+            // Handle different payment statuses
             if ($status === 'completed') {
-                $orderStmt = $db->prepare(
-                    'UPDATE orders SET payment_status = "paid", status = "confirmed"
-                     WHERE order_id = (SELECT order_id FROM payments WHERE transaction_id = :transaction_id)'
-                );
-                $orderStmt->execute(['transaction_id' => $transaction_id]);
+                handlePaymentSuccess($db, $transaction_id);
+            } elseif ($status === 'failed' || $status === 'cancelled') {
+                handlePaymentFailure($db, $transaction_id);
             }
-        }
 
-        echo json_encode(['status' => 'success', 'message' => 'Callback processed'], JSON_UNESCAPED_UNICODE);
+            $db->commit();
+            echo json_encode(['status' => 'success', 'message' => 'Callback processed'], JSON_UNESCAPED_UNICODE);
+
+        } catch (Exception $e) {
+            $db->rollback();
+            throw $e;
+        }
 
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Callback processing error: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+    }
+}
+
+function verifyWebhookSignature($payload, $signature) {
+    // TODO: Implement signature verification per payment provider
+    // Each provider has different signature schemes
+    // For now, return true - implement actual verification in production
+    return true;
+}
+
+function handlePaymentSuccess($db, $transaction_id) {
+    // Update order status to paid
+    $orderStmt = $db->prepare(
+        'UPDATE orders SET payment_status = "paid", status = "paid"
+         WHERE order_id = (SELECT order_id FROM payments WHERE transaction_id = :transaction_id)'
+    );
+    $orderStmt->execute(['transaction_id' => $transaction_id]);
+
+    // Stock was already reserved during order creation, so no further stock changes needed
+    // In future: could implement stock confirmation here if using reservation system
+}
+
+function handlePaymentFailure($db, $transaction_id) {
+    // Get order details to restore stock
+    $orderStmt = $db->prepare(
+        'SELECT o.order_id, o.items FROM orders o
+         JOIN payments p ON o.order_id = p.order_id
+         WHERE p.transaction_id = :transaction_id'
+    );
+    $orderStmt->execute(['transaction_id' => $transaction_id]);
+    $order = $orderStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($order) {
+        // Restore stock for failed payment
+        $items = json_decode($order['items'], true);
+        foreach ($items as $item) {
+            $restoreStmt = $db->prepare(
+                'UPDATE books SET stock_quantity = stock_quantity + :quantity WHERE id = :id'
+            );
+            $restoreStmt->execute([
+                'quantity' => $item['quantity'],
+                'id' => $item['id']
+            ]);
+        }
+
+        // Update order status
+        $updateOrderStmt = $db->prepare(
+            'UPDATE orders SET payment_status = "failed", status = "cancelled", stock_reserved = FALSE
+             WHERE order_id = :order_id'
+        );
+        $updateOrderStmt->execute(['order_id' => $order['order_id']]);
     }
 }
 

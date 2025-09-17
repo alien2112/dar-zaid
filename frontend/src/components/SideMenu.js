@@ -35,7 +35,7 @@ const SideMenu = () => {
         </button>
         <div className="side-menu-content">
           <Link to="/" className="logo-link">
-            <img src="/logo.png" alt="دار زيد للنشر والتوزيع" style={{ height: '140px' }} />
+            <img src="/logo.png" alt="دار زيد للنشر والتوزيع" style={{ height: '270px' }} />
           </Link>
           <ul>
             <li><Link to="/" onClick={() => setIsOpen(false)}>الرئيسية</Link></li>

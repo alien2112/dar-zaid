@@ -1,5 +1,5 @@
 <?php
-require_once '../config/database.php';
+require_once __DIR__ . '/../config/database.php';
 
 header('Content-Type: application/json');
 $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
@@ -10,6 +10,17 @@ header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Access-Control-Allow-Credentials: true');
 
 $method = $_SERVER['REQUEST_METHOD'];
+// Ensure database connection exists
+if (!isset($db) || !$db) {
+    try {
+        $database = new Database();
+        $db = $database->getConnection();
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed'], JSON_UNESCAPED_UNICODE);
+        exit();
+    }
+}
 
 if ($method === 'OPTIONS') {
     http_response_code(200);
@@ -31,10 +42,11 @@ if ($method == 'GET') {
                     'description' => $row['description'],
                     'price' => (float)$row['price'],
                     'category' => $row['category'],
+                    'publisher' => $row['publisher'] ?? null,
                     'image_url' => $row['image_url'] ?? '/images/book-placeholder.jpg',
                     'isbn' => $row['isbn'],
                     'stock_quantity' => (int)$row['stock_quantity'],
-                    'is_chosen' => (bool)$row['is_chosen'],
+                    'is_chosen' => (int)$row['is_chosen'],
                 ];
             }
             echo json_encode([
@@ -47,19 +59,120 @@ if ($method == 'GET') {
         $offset = ($page - 1) * $limit;
         $search = isset($_GET['search']) ? trim($_GET['search']) : '';
         $category = isset($_GET['category']) ? trim($_GET['category']) : '';
+        
+        // New filtering parameters
+        $filters = isset($_GET['filters']) ? json_decode($_GET['filters'], true) : [];
+        $sortBy = isset($_GET['sort']) ? $_GET['sort'] : 'default';
 
         $where = [];
         $params = [];
+        
+        // Search filter
         if ($search !== '') {
             $where[] = '(LOWER(title) LIKE :search OR LOWER(author) LIKE :search OR isbn LIKE :searchExact)';
             $params['search'] = '%' . strtolower($search) . '%';
             $params['searchExact'] = '%' . $search . '%';
         }
+        
+        // Category filter (backward compatibility)
         if ($category !== '') {
             $where[] = 'category = :category';
             $params['category'] = $category;
         }
+        
+        // New filter system
+        if (is_array($filters)) {
+            // Categories filter
+            if (isset($filters['categories']) && is_array($filters['categories']) && count($filters['categories']) > 0) {
+                $categoryPlaceholders = [];
+                foreach ($filters['categories'] as $i => $cat) {
+                    $placeholder = "category_$i";
+                    $categoryPlaceholders[] = ":$placeholder";
+                    $params[$placeholder] = $cat;
+                }
+                $where[] = 'category IN (' . implode(',', $categoryPlaceholders) . ')';
+            }
+            
+            // Price range filter
+            if (isset($filters['priceRange'])) {
+                $priceRange = $filters['priceRange'];
+                if (isset($priceRange['min']) && $priceRange['min'] > 0) {
+                    $where[] = 'price >= :price_min';
+                    $params['price_min'] = (float)$priceRange['min'];
+                }
+                if (isset($priceRange['max']) && $priceRange['max'] < PHP_FLOAT_MAX) {
+                    $where[] = 'price <= :price_max';
+                    $params['price_max'] = (float)$priceRange['max'];
+                }
+            }
+            
+            // Authors filter
+            if (isset($filters['authors']) && is_array($filters['authors']) && count($filters['authors']) > 0) {
+                $authorPlaceholders = [];
+                foreach ($filters['authors'] as $i => $author) {
+                    $placeholder = "author_$i";
+                    $authorPlaceholders[] = ":$placeholder";
+                    $params[$placeholder] = $author;
+                }
+                $where[] = 'author IN (' . implode(',', $authorPlaceholders) . ')';
+            }
+            
+            // Publishers filter (assuming we have a publisher field)
+            if (isset($filters['publishers']) && is_array($filters['publishers']) && count($filters['publishers']) > 0) {
+                $publisherPlaceholders = [];
+                foreach ($filters['publishers'] as $i => $publisher) {
+                    $placeholder = "publisher_$i";
+                    $publisherPlaceholders[] = ":$placeholder";
+                    $params[$placeholder] = $publisher;
+                }
+                $where[] = 'publisher IN (' . implode(',', $publisherPlaceholders) . ')';
+            }
+            
+            // Custom filters
+            if (isset($filters['customFilters']) && is_array($filters['customFilters'])) {
+                foreach ($filters['customFilters'] as $filterId => $filterValues) {
+                    if (is_array($filterValues) && count($filterValues) > 0) {
+                        $customPlaceholders = [];
+                        foreach ($filterValues as $i => $value) {
+                            $placeholder = "custom_{$filterId}_$i";
+                            $customPlaceholders[] = ":$placeholder";
+                            $params[$placeholder] = $value;
+                        }
+                        // Assuming custom filters are stored in a JSON field or separate table
+                        // For now, we'll skip custom filters as they need more complex implementation
+                    }
+                }
+            }
+        }
+        
         $whereSql = count($where) ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+        // Sorting
+        $orderBy = 'created_at DESC'; // default
+        switch ($sortBy) {
+            case 'price_high':
+                $orderBy = 'price DESC';
+                break;
+            case 'price_low':
+                $orderBy = 'price ASC';
+                break;
+            case 'date_recent':
+                $orderBy = 'created_at DESC';
+                break;
+            case 'date_old':
+                $orderBy = 'created_at ASC';
+                break;
+            case 'title_asc':
+                $orderBy = 'title ASC';
+                break;
+            case 'title_desc':
+                $orderBy = 'title DESC';
+                break;
+            case 'default':
+            default:
+                $orderBy = 'created_at DESC';
+                break;
+        }
 
         // Count total
         $countSql = "SELECT COUNT(*) as total FROM books $whereSql";
@@ -68,7 +181,7 @@ if ($method == 'GET') {
         $total = (int)$countStmt->fetch(PDO::FETCH_ASSOC)['total'];
 
         // Fetch page
-        $sql = "SELECT * FROM books $whereSql ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
+        $sql = "SELECT * FROM books $whereSql ORDER BY $orderBy LIMIT :limit OFFSET :offset";
         $stmt = $db->prepare($sql);
         foreach ($params as $k => $v) {
             $stmt->bindValue(':' . $k, $v);
@@ -86,10 +199,11 @@ if ($method == 'GET') {
                 'description' => $row['description'],
                 'price' => (float)$row['price'],
                 'category' => $row['category'],
+                'publisher' => $row['publisher'] ?? null,
                 'image_url' => $row['image_url'] ?? '/images/book-placeholder.jpg',
                 'isbn' => $row['isbn'],
                 'stock_quantity' => (int)$row['stock_quantity'],
-                'is_chosen' => (bool)$row['is_chosen'],
+                'is_chosen' => (int)$row['is_chosen'],
             ];
         }
 
@@ -106,27 +220,33 @@ if ($method == 'GET') {
 } elseif ($method === 'POST') {
     try {
         $data = json_decode(file_get_contents('php://input'), true);
+        error_log("Books POST: Received data: " . print_r($data, true));
+
         if (!$data || empty($data['title']) || empty($data['author']) || !isset($data['price'])) {
             http_response_code(400);
             echo json_encode(['error' => 'Missing required fields']);
             exit();
         }
 
-        $sql = 'INSERT INTO books (title, author, description, price, category, image_url, stock_quantity, isbn, published_date, is_chosen) 
-                VALUES (:title, :author, :description, :price, :category, :image_url, :stock_quantity, :isbn, :published_date, :is_chosen)';
+        $sql = 'INSERT INTO books (title, author, description, price, category, publisher, image_url, stock_quantity, isbn, published_date, is_chosen) 
+                VALUES (:title, :author, :description, :price, :category, :publisher, :image_url, :stock_quantity, :isbn, :published_date, :is_chosen)';
         $stmt = $db->prepare($sql);
-        $stmt->execute([
+        $executeParams = [
             'title' => $data['title'],
             'author' => $data['author'],
             'description' => $data['description'] ?? '',
             'price' => (float)$data['price'],
             'category' => $data['category'] ?? null,
+            'publisher' => $data['publisher'] ?? null,
             'image_url' => $data['image_url'] ?? null,
             'stock_quantity' => isset($data['stock_quantity']) ? (int)$data['stock_quantity'] : 0,
             'isbn' => $data['isbn'] ?? null,
             'published_date' => $data['published_date'] ?? null,
-            'is_chosen' => isset($data['is_chosen']) ? (bool)$data['is_chosen'] : false,
-        ]);
+            'is_chosen' => isset($data['is_chosen']) ? (int)$data['is_chosen'] : 0,
+        ];
+
+        error_log("Books POST: Execute params: " . print_r($executeParams, true));
+        $stmt->execute($executeParams);
         $id = (int)$db->lastInsertId();
 
         http_response_code(201);
@@ -147,10 +267,10 @@ if ($method == 'GET') {
         $data = json_decode(file_get_contents('php://input'), true) ?: [];
         $fields = [];
         $params = ['id' => $id];
-        foreach (['title','author','description','price','category','image_url','stock_quantity','isbn','published_date', 'is_chosen'] as $f) {
+        foreach (['title','author','description','price','category','publisher','image_url','stock_quantity','isbn','published_date', 'is_chosen'] as $f) {
             if (array_key_exists($f, $data)) {
                 $fields[] = "$f = :$f";
-                $params[$f] = $f === 'price' ? (float)$data[$f] : ($f === 'stock_quantity' ? (int)$data[$f] : ($f === 'is_chosen' ? (bool)$data[$f] : $data[$f]));
+                $params[$f] = $f === 'price' ? (float)$data[$f] : ($f === 'stock_quantity' ? (int)$data[$f] : ($f === 'is_chosen' ? (int)$data[$f] : $data[$f]));
             }
         }
         if (empty($fields)) {

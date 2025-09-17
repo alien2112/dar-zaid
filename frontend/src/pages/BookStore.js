@@ -6,6 +6,8 @@ import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 import BookCard from '../components/BookCard';
+import BookFilters from '../components/BookFilters';
+import '../styles/BookFilters.css';
 
 const BookStore = () => {
   const [books, setBooks] = useState([]);
@@ -17,6 +19,21 @@ const BookStore = () => {
   const [selectedCategory, setSelectedCategory] = useState('الكل');
   const [filteredBooks, setFilteredBooks] = useState([]);
   const [categories, setCategories] = useState(['الكل']);
+  const [authors, setAuthors] = useState([]);
+  const [publishers, setPublishers] = useState([]);
+  const [priceRange, setPriceRange] = useState({ min: 0, max: Infinity });
+  
+  // New filter state
+  const [filters, setFilters] = useState({
+    categories: [],
+    priceRange: { min: 0, max: Infinity },
+    authors: [],
+    publishers: [],
+    customFilters: {}
+  });
+  const [sortBy, setSortBy] = useState('default');
+  const [showFilters, setShowFilters] = useState(false);
+  
   const location = useLocation();
   const { addToCart } = useCart();
   const { user, isAuthenticated } = useAuth();
@@ -43,6 +60,25 @@ const BookStore = () => {
     }
   }, [location.search]);
 
+  // Load filter options
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      try {
+        const response = await apiService.get('/filter_options');
+        const options = response.data;
+        console.log('Filter options response:', options);
+        console.log('Categories from API:', options.categories);
+        setCategories(['الكل', ...(options.categories || [])]);
+        setAuthors(options.authors || []);
+        setPublishers(options.publishers || []);
+        setPriceRange(options.priceRange || { min: 0, max: Infinity });
+      } catch (error) {
+        console.error('Failed to load filter options:', error);
+      }
+    };
+    loadFilterOptions();
+  }, []);
+
   useEffect(() => {
     const fetchPage = async () => {
       setLoading(true);
@@ -51,7 +87,9 @@ const BookStore = () => {
           page,
           limit,
           search: searchTerm || undefined,
-          category: selectedCategory !== 'الكل' ? selectedCategory : undefined
+          category: selectedCategory !== 'الكل' ? selectedCategory : undefined,
+          filters: JSON.stringify(filters),
+          sort: sortBy
         };
         const res = await apiService.getBooks(params);
         const items = res.data.items || [];
@@ -67,24 +105,13 @@ const BookStore = () => {
       }
     };
     fetchPage();
-  }, [page, limit, searchTerm, selectedCategory]);
+  }, [page, limit, searchTerm, selectedCategory, filters, sortBy]);
 
-  useEffect(() => {
-    let filtered = books;
-
-    if (selectedCategory !== 'الكل') {
-      filtered = filtered.filter(book => book.category === selectedCategory);
-    }
-
-    if (searchTerm) {
-      filtered = filtered.filter(book =>
-        book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        book.author.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    setFilteredBooks(filtered);
-  }, [books, searchTerm, selectedCategory]);
+  // Remove the old client-side filtering since we're now doing it server-side
+  // useEffect(() => {
+  //   let filtered = books;
+  //   // ... old filtering logic removed
+  // }, [books, searchTerm, selectedCategory]);
 
   if (loading) {
     return (
@@ -95,66 +122,141 @@ const BookStore = () => {
   }
 
   return (
-    <div style={{ padding: '2rem 0', minHeight: '70vh' }}>
+    <div style={{ padding: '1rem 0', minHeight: '70vh' }}>
       <div className="container">
         <h1 style={{
           textAlign: 'center',
-          marginBottom: '3rem',
-          fontSize: '2.5rem',
+          marginBottom: '2rem',
+          fontSize: 'clamp(1.8rem, 4vw, 2.5rem)',
           color: '#1e3a8a',
-          fontFamily: 'Amiri, serif'
+          fontFamily: 'Amiri, serif',
+          lineHeight: 1.3
         }}>
           متجر الكتب
         </h1>
 
-        {/* Search and Filter Bar */}
-        <div className="search-filter-bar">
+        {/* Search Bar */}
+        <div className="search-filter-bar" style={{ marginBottom: '2rem' }}>
           <input
             type="text"
             placeholder="ابحث عن كتاب أو مؤلف..."
             className="search-input"
             defaultValue={searchTerm}
             onChange={(e) => debouncedSetSearch(e.target.value)}
+            style={{ 
+              fontSize: '16px', // Prevents zoom on iOS
+              minHeight: '44px',
+              padding: '12px 16px'
+            }}
           />
-          <select
-            className="filter-select"
-            value={selectedCategory}
-            onChange={(e) => debouncedSetCategory(e.target.value)}
+          {/* Mobile Filter Toggle Button */}
+          <button
+            className="mobile-filter-toggle"
+            onClick={() => setShowFilters(!showFilters)}
+            style={{
+              display: 'none',
+              background: '#1e3a8a',
+              color: 'white',
+              border: 'none',
+              padding: '12px 20px',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              minHeight: '44px',
+              marginLeft: '1rem'
+            }}
           >
-            {categories.map(category => (
-              <option key={category} value={category}>{category}</option>
-            ))}
-          </select>
+            {showFilters ? 'إخفاء الفلاتر' : 'عرض الفلاتر'}
+          </button>
         </div>
 
-        <div className="books-grid">
-          {filteredBooks.map((book) => (
-            <BookCard key={book.id} book={book} />
-          ))}
+        {/* Main Content with Filters and Books */}
+        <div className="bookstore-layout">
+          {/* Filters Sidebar */}
+          <div className={`filters-sidebar ${showFilters ? 'mobile-show' : ''}`}>
+            <BookFilters
+              filters={filters}
+              onFiltersChange={setFilters}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              categories={categories.filter(cat => cat !== 'الكل')}
+              authors={authors}
+              publishers={publishers}
+            />
+          </div>
+
+          {/* Books Grid */}
+          <div className="books-content">
+            <div className="books-grid">
+              {filteredBooks.map((book) => (
+                <BookCard key={book.id} book={book} />
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* No Results Message */}
         {filteredBooks.length === 0 && !loading && (
           <div style={{
             textAlign: 'center',
-            padding: '4rem 2rem',
+            padding: '3rem 1rem',
             color: '#6b7280'
           }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📚</div>
-            <h3 style={{ marginBottom: '1rem', color: '#374151' }}>لم نجد أي كتب</h3>
-            <p>جرب البحث بكلمات مختلفة أو اختر تصنيفاً آخر</p>
+            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>📚</div>
+            <h3 style={{ marginBottom: '1rem', color: '#374151', fontSize: '1.3rem' }}>لم نجد أي كتب</h3>
+            <p style={{ fontSize: '0.95rem' }}>جرب البحث بكلمات مختلفة أو اختر تصنيفاً آخر</p>
           </div>
         )}
 
         {/* Pagination */}
         {total > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: '2rem' }}>
-            <button className="btn btn-secondary" disabled={page === 1} onClick={() => debouncedSetPage(Math.max(1, page - 1))}>السابق</button>
-            <span style={{ color: '#6b7280' }}>
-              صفحة {page} من {Math.max(1, Math.ceil(total / limit))}
-            </span>
-            <button className="btn btn-secondary" disabled={page >= Math.ceil(total / limit)} onClick={() => debouncedSetPage(page + 1)}>التالي</button>
-            <select className="filter-select" value={limit} onChange={(e) => { setPage(1); setLimit(parseInt(e.target.value)); }}>
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            alignItems: 'center', 
+            gap: '1rem', 
+            marginTop: '2rem',
+            padding: '0 1rem'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              gap: '0.5rem',
+              flexWrap: 'wrap'
+            }}>
+              <button 
+                className="btn btn-secondary" 
+                disabled={page === 1} 
+                onClick={() => debouncedSetPage(Math.max(1, page - 1))}
+                style={{ minHeight: '44px', padding: '12px 20px' }}
+              >
+                السابق
+              </button>
+              <span style={{ color: '#6b7280', fontSize: '0.9rem', padding: '0 0.5rem' }}>
+                صفحة {page} من {Math.max(1, Math.ceil(total / limit))}
+              </span>
+              <button 
+                className="btn btn-secondary" 
+                disabled={page >= Math.ceil(total / limit)} 
+                onClick={() => debouncedSetPage(page + 1)}
+                style={{ minHeight: '44px', padding: '12px 20px' }}
+              >
+                التالي
+              </button>
+            </div>
+            <select 
+              className="filter-select" 
+              value={limit} 
+              onChange={(e) => { setPage(1); setLimit(parseInt(e.target.value)); }}
+              style={{ 
+                fontSize: '16px',
+                minHeight: '44px',
+                padding: '12px 16px',
+                minWidth: '120px'
+              }}
+            >
               {[6,12,24,48].map(v => <option key={v} value={v}>{v}/صفحة</option>)}
             </select>
           </div>

@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 
 const CartContext = createContext();
 
@@ -8,19 +8,59 @@ export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
+  // Hydrate cart from localStorage on first mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('dz_cart');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setCartItems(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Persist cart to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('dz_cart', JSON.stringify(cartItems));
+    } catch {}
+  }, [cartItems]);
+
   const openCart = () => setIsCartOpen(true);
   const closeCart = () => setIsCartOpen(false);
 
   const addToCart = (book) => {
+    const itemToAdd = { ...book, type: book.type || 'book' };
     setCartItems(prevItems => {
-      const itemInCart = prevItems.find(item => item.id === book.id);
+      const itemInCart = prevItems.find(item => item.id === itemToAdd.id && (item.type || 'book') === (itemToAdd.type || 'book'));
       if (itemInCart) {
         return prevItems.map(item =>
-          item.id === book.id ? { ...item, quantity: item.quantity + 1 } : item
+          (item.id === itemToAdd.id && (item.type || 'book') === (itemToAdd.type || 'book')) ? { ...item, quantity: item.quantity + 1 } : item
         );
       } else {
-        return [...prevItems, { ...book, quantity: 1 }];
+        return [...prevItems, { ...itemToAdd, quantity: 1 }];
       }
+    });
+    openCart();
+  };
+
+  const addPackageToCart = (pkg) => {
+    const itemToAdd = {
+      id: pkg.id,
+      type: 'package',
+      title: pkg.name,
+      name: pkg.name,
+      price: pkg.price,
+      currency: pkg.currency || 'SAR'
+    };
+    setCartItems(prevItems => {
+      const itemInCart = prevItems.find(item => item.id === itemToAdd.id && (item.type || 'book') === 'package');
+      if (itemInCart) {
+        return prevItems.map(item => (item.id === itemToAdd.id && (item.type || 'book') === 'package') ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      return [...prevItems, { ...itemToAdd, quantity: 1 }];
     });
     openCart();
   };
@@ -43,6 +83,7 @@ export const CartProvider = ({ children }) => {
 
   const clearCart = () => {
     setCartItems([]);
+    try { localStorage.removeItem('dz_cart'); } catch {}
   };
 
   const getCartTotal = () => {
@@ -53,6 +94,8 @@ export const CartProvider = ({ children }) => {
     <CartContext.Provider
       value={{
         cartItems,
+        // Backward compatibility: some pages use `cart`
+        cart: cartItems,
         addToCart,
         removeFromCart,
         updateQuantity,
@@ -61,6 +104,7 @@ export const CartProvider = ({ children }) => {
         isCartOpen,
         openCart,
         closeCart,
+        addPackageToCart,
       }}
     >
       {children}

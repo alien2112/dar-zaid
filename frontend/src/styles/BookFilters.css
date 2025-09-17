@@ -1,0 +1,280 @@
+/* Book Filters Styles */
+.book-filters {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.filter-section {
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 1rem;
+}
+
+.filter-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.filter-header.expandable:hover {
+  background: #f3f4f6;
+  border-radius: 6px;
+  padding: 0.5rem;
+  margin: -0.5rem;
+}
+
+.filter-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1e3a8a;
+  font-family: 'Amiri', serif;
+}
+
+.expand-icon {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #6b7280;
+  transition: transform 0.2s ease;
+}
+
+.filter-content {
+  margin-top: 0.5rem;
+}
+
+.filter-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-radius: 6px;
+  margin-bottom: 0.25rem;
+}
+
+.filter-option:hover {
+  background: #f3f4f6;
+  padding-left: 0.5rem;
+  margin-left: -0.5rem;
+  margin-right: -0.5rem;
+}
+
+.filter-option input[type="radio"],
+.filter-option input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #1e3a8a;
+  cursor: pointer;
+}
+
+.filter-label {
+  font-size: 0.95rem;
+  color: #374151;
+  cursor: pointer;
+  flex: 1;
+}
+
+/* Sort Select */
+.sort-select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  font-size: 1rem;
+  color: #374151;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: #1e3a8a;
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+}
+
+/* Price Range */
+.price-range {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.price-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.price-input {
+  flex: 1;
+  min-width: 80px;
+  padding: 0.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 1rem;
+  text-align: center;
+  transition: border-color 0.2s ease;
+}
+
+.price-input:focus {
+  outline: none;
+  border-color: #1e3a8a;
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+}
+
+.currency {
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.apply-price-btn {
+  background: #1e3a8a;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  white-space: nowrap;
+}
+
+.apply-price-btn:hover {
+  background: #1e40af;
+}
+
+/* Clear Filters Button */
+.clear-filters-btn {
+  width: 100%;
+  background: transparent;
+  color: #dc2626;
+  border: 2px solid #dc2626;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 1rem;
+}
+
+.clear-filters-btn:hover {
+  background: #dc2626;
+  color: white;
+}
+
+/* Bookstore Layout */
+.bookstore-layout {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.filters-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 2rem;
+}
+
+.books-content {
+  flex: 1;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .bookstore-layout {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .filters-sidebar {
+    width: 100%;
+    position: static;
+    order: 2;
+  }
+  
+  .books-content {
+    order: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .book-filters {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .filter-header h3 {
+    font-size: 1rem;
+  }
+  
+  .price-inputs {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .price-input {
+    min-width: auto;
+  }
+  
+  .apply-price-btn {
+    width: 100%;
+  }
+  
+  .bookstore-layout {
+    gap: 0.5rem;
+  }
+}
+
+/* Animation for expanding/collapsing */
+.filter-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+}
+
+.filter-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Custom scrollbar for filter options */
+.filter-content {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.filter-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.filter-content::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 2px;
+}
+
+.filter-content::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.filter-content::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

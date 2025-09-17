@@ -46,27 +46,72 @@ const BookDetails = () => {
   }
 
   return (
-    <div className="container" style={{ padding: '2rem 0' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 3fr', gap: '2rem' }}>
-        <div>
+    <div className="container" style={{ padding: '1rem 0' }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+        gap: '2rem',
+        marginBottom: '2rem'
+      }}>
+        <div style={{ textAlign: 'center' }}>
           <div style={{
-            height: '380px',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '4rem',
-            borderRadius: 12
-          }}>📚</div>
+            height: '400px',
+            background: `url(${book.image_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-size="48">📚</text></svg>'}) no-repeat center center / cover`,
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            color: 'white', 
+            fontSize: '4rem',
+            borderRadius: 12,
+            boxShadow: '0 8px 25px rgba(0,0,0,0.15)',
+            margin: '0 auto',
+            maxWidth: '300px'
+          }}>
+            {!book.image_url && '📚'}
+          </div>
         </div>
-        <div>
-          <h1 style={{ marginBottom: '0.5rem' }}>{book.title}</h1>
-          <div style={{ color: '#6b7280', marginBottom: '1rem' }}>المؤلف: {book.author}</div>
-          <div style={{ marginBottom: '1rem' }}>{book.description}</div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e3a8a', marginBottom: '1rem' }}>{book.price} ريال</div>
-          <button className="btn btn-primary" onClick={() => addToCart(book)}>أضف للسلة</button>
+        <div style={{ padding: '0 1rem' }}>
+          <h1 style={{ 
+            marginBottom: '0.5rem', 
+            fontSize: 'clamp(1.5rem, 4vw, 2rem)',
+            lineHeight: 1.3,
+            color: '#1e3a8a'
+          }}>{book.title}</h1>
+          <div style={{ 
+            color: '#6b7280', 
+            marginBottom: '1rem',
+            fontSize: '1.1rem'
+          }}>المؤلف: {book.author}</div>
+          <div style={{ 
+            marginBottom: '1rem',
+            lineHeight: 1.6,
+            color: '#4a5568'
+          }}>{book.description}</div>
+          <div style={{ 
+            fontSize: '1.5rem', 
+            fontWeight: 700, 
+            color: '#1e3a8a', 
+            marginBottom: '1.5rem' 
+          }}>{book.price} ريال</div>
+          <button 
+            className="btn btn-primary" 
+            onClick={() => addToCart(book)}
+            style={{
+              minHeight: '44px',
+              padding: '12px 24px',
+              fontSize: '1rem',
+              width: '100%'
+            }}
+          >أضف للسلة</button>
         </div>
       </div>
 
-      <div style={{ marginTop: '2rem' }}>
-        <h2 style={{ marginBottom: '1rem' }}>التقييمات</h2>
+      <div style={{ marginTop: '2rem', padding: '0 1rem' }}>
+        <h2 style={{ 
+          marginBottom: '1rem',
+          fontSize: '1.5rem',
+          color: '#1e3a8a'
+        }}>التقييمات</h2>
         <BookReviewsFull bookId={book.id} />
       </div>
     </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { useNavigate } from 'react-router-dom';
 import CheckoutPayment from '../components/CheckoutPayment';
+import { apiService } from '../services/api';
 
 const Checkout = () => {
   const { cart, clearCart } = useCart();
@@ -19,8 +20,33 @@ const Checkout = () => {
     city: '',
     region: '',
     postal_code: '',
+    country: ''
+  });
+  const [settings, setSettings] = useState({
+    shipping_cost: 25,
+    free_shipping_threshold: 200,
+    tax_rate: 0.15,
+    currency: 'SAR',
     country: 'Saudi Arabia'
   });
+
+  // Load settings from backend
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await apiService.getSettings();
+        setSettings(response.data.settings);
+        setShippingAddress(prev => ({
+          ...prev,
+          country: response.data.settings.country || 'Saudi Arabia'
+        }));
+      } catch (error) {
+        console.error('Error loading settings:', error);
+        // Keep default values if API fails
+      }
+    };
+    loadSettings();
+  }, []);
 
   // Redirect to cart if empty
   useEffect(() => {
@@ -31,9 +57,8 @@ const Checkout = () => {
 
   const calculateTotals = () => {
     const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-    const shipping_cost = subtotal > 200 ? 0 : 25; // Free shipping over 200 SAR
-    const tax_rate = 0.15; // 15% VAT
-    const tax_amount = subtotal * tax_rate;
+    const shipping_cost = subtotal > settings.free_shipping_threshold ? 0 : settings.shipping_cost;
+    const tax_amount = subtotal * settings.tax_rate;
     const total = subtotal + shipping_cost + tax_amount;
 
     return {
@@ -64,7 +89,8 @@ const Checkout = () => {
       id: `order_${Date.now()}`,
       items: cart.map(item => ({
         id: item.id,
-        title: item.title,
+        type: item.type || 'book',
+        title: item.title || item.name,
         price: item.price,
         quantity: item.quantity
       })),
@@ -236,24 +262,24 @@ const Checkout = () => {
           <div className="order-totals">
             <div className="total-row">
               <span>المجموع الفرعي:</span>
-              <span>{totals.subtotal.toFixed(2)} ريال</span>
+              <span>{totals.subtotal.toFixed(2)} {settings.currency}</span>
             </div>
             <div className="total-row">
               <span>الشحن:</span>
-              <span>{totals.shipping_cost > 0 ? `${totals.shipping_cost.toFixed(2)} ريال` : 'مجاناً'}</span>
+              <span>{totals.shipping_cost > 0 ? `${totals.shipping_cost.toFixed(2)} ${settings.currency}` : 'مجاناً'}</span>
             </div>
             <div className="total-row">
-              <span>الضريبة (15%):</span>
-              <span>{totals.tax_amount.toFixed(2)} ريال</span>
+              <span>الضريبة ({(settings.tax_rate * 100).toFixed(0)}%):</span>
+              <span>{totals.tax_amount.toFixed(2)} {settings.currency}</span>
             </div>
             <div className="total-row total">
               <span>الإجمالي:</span>
-              <span>{totals.total.toFixed(2)} ريال</span>
+              <span>{totals.total.toFixed(2)} {settings.currency}</span>
             </div>
           </div>
           {totals.shipping_cost === 0 && (
             <div className="free-shipping-notice">
-              <p>🎉 شحن مجاني! (للطلبات أكثر من 200 ريال)</p>
+              <p>🎉 شحن مجاني! (للطلبات أكثر من {settings.free_shipping_threshold} {settings.currency})</p>
             </div>
           )}
         </div>

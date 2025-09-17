@@ -1,5 +1,5 @@
 <?php
-require_once '../config/database.php';
+require_once __DIR__ . '/../config/database.php';
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: ' . (isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*'));
@@ -58,5 +58,6 @@ foreach ($rows as $i => $row) {
 echo json_encode(['success' => true, 'inserted' => $inserted, 'errors' => $errors], JSON_UNESCAPED_UNICODE);
 
 ?>
+
 
 
