@@ -1,0 +1,76 @@
+.side-menu-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1001;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  font-size: 24px;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.side-menu {
+  position: fixed;
+  top: 0;
+  right: -300px;
+  width: 300px;
+  height: 100%;
+  background: #fff;
+  box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+  transition: right 0.3s ease-in-out;
+  z-index: 1000;
+}
+
+.side-menu.open {
+  right: 0;
+}
+
+.side-menu .close-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.side-menu-content {
+  padding: 20px;
+  padding-top: 60px;
+}
+
+.side-menu-content .logo-link {
+  display: block;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.side-menu-content ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.side-menu-content ul li {
+  margin-bottom: 10px;
+}
+
+.side-menu-content ul li a,
+.side-menu-content ul li button {
+  display: block;
+  padding: 10px 15px;
+  color: #333;
+  text-decoration: none;
+  border-radius: 5px;
+  transition: background-color 0.2s;
+}
+
+.side-menu-content ul li a:hover,
+.side-menu-content ul li button:hover {
+  background-color: #f0f0f0;
+}

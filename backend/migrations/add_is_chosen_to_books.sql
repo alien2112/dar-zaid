@@ -1,0 +1,1 @@
+ALTER TABLE books ADD is_chosen BOOLEAN DEFAULT FALSE;
