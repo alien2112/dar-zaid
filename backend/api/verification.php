@@ -1,20 +1,10 @@
 <?php
+// Include centralized CORS configuration
+require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../services/sendgrid_service.php';
 
-// CORS and cookies
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: ' . (isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*'));
-header('Vary: Origin');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Credentials: true');
-
 $method = $_SERVER['REQUEST_METHOD'];
-if ($method === 'OPTIONS') { 
-    http_response_code(200); 
-    exit(); 
-}
 
 $request_uri = $_SERVER['REQUEST_URI'];
 $path_parts = explode('/', trim(parse_url($request_uri, PHP_URL_PATH), '/'));
@@ -121,3 +111,9 @@ function handleVerifyCode($data) {
     }
 }
 ?>
+
+
+
+
+
+

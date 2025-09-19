@@ -46,21 +46,9 @@ const BookOfTheWeek = () => {
 
   return (
     <div className="book-of-week-container">
-      <div className="book-of-week-header">
-        <h2 className="book-of-week-title">
-          <span className="crown-icon">👑</span>
-          كتاب الأسبوع
-          <span className="crown-icon">👑</span>
-        </h2>
-        <p className="book-of-week-subtitle">اختيار خاص من دار زيد للنشر والتوزيع</p>
-      </div>
-
-      <div className="book-of-week-card">
-        <div className="book-of-week-badge">
-          <span>كتاب الأسبوع</span>
-        </div>
-
-        <div className="book-of-week-content">
+      <div className="book-of-week-layout">
+        {/* Main Book Display */}
+        <div className="book-of-week-main">
           <div className="book-of-week-image">
             <Link to={`/book/${bookOfWeek.id}`}>
               <img
@@ -126,6 +114,14 @@ const BookOfTheWeek = () => {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Book of the Week Badge - Right Side */}
+        <div className="book-of-week-badge-section">
+          <div className="book-of-week-badge">
+            <span className="book-text">كتاب</span>
+            <span className="week-text">الأسبوع</span>
           </div>
         </div>
       </div>

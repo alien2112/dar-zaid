@@ -8,10 +8,12 @@ import { useAuth } from '../contexts/AuthContext';
 import BookCard from '../components/BookCard';
 import BookFilters from '../components/BookFilters';
 import '../styles/BookFilters.css';
+import '../styles/BookCard.css';
 
 const BookStore = () => {
   const [books, setBooks] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [booksLoading, setBooksLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(12);
   const [total, setTotal] = useState(0);
@@ -21,11 +23,10 @@ const BookStore = () => {
   const [categories, setCategories] = useState(['الكل']);
   const [authors, setAuthors] = useState([]);
   const [publishers, setPublishers] = useState([]);
-  const [priceRange, setPriceRange] = useState({ min: 0, max: Infinity });
   
   // New filter state
   const [filters, setFilters] = useState({
-    categories: [],
+    categories: ['الكل'],
     priceRange: { min: 0, max: Infinity },
     authors: [],
     publishers: [],
@@ -50,6 +51,11 @@ const BookStore = () => {
   const debouncedSetPage = useDebounce((value) => {
     setPage(value);
   }, 0);
+  
+  // Debounced filter changes to prevent too many API calls
+  const debouncedSetFilters = useDebounce((newFilters) => {
+    setFilters(newFilters);
+  }, 300);
 
   useEffect(() => {
     // Read category filter from query string
@@ -57,38 +63,76 @@ const BookStore = () => {
     const cat = params.get('category');
     if (cat) {
       setSelectedCategory(cat);
+      setFilters(prev => ({ ...prev, categories: [cat] }));
+    } else {
+      // Reset to 'الكل' if no category in URL
+      setSelectedCategory('الكل');
+      setFilters(prev => ({ ...prev, categories: ['الكل'] }));
     }
   }, [location.search]);
 
-  // Load filter options
+  // Load categories directly
   useEffect(() => {
-    const loadFilterOptions = async () => {
+    const loadCategories = async () => {
       try {
-        const response = await apiService.get('/filter_options');
-        const options = response.data;
-        console.log('Filter options response:', options);
-        console.log('Categories from API:', options.categories);
-        setCategories(['الكل', ...(options.categories || [])]);
-        setAuthors(options.authors || []);
-        setPublishers(options.publishers || []);
-        setPriceRange(options.priceRange || { min: 0, max: Infinity });
+        const response = await apiService.getCategories();
+        const categoriesData = response.data;
+        
+        // Handle different response formats
+        let categoryNames = [];
+        if (Array.isArray(categoriesData)) {
+          categoryNames = categoriesData.map(cat => cat.name || cat);
+        } else if (categoriesData && Array.isArray(categoriesData.categories)) {
+          categoryNames = categoriesData.categories.map(cat => cat.name || cat);
+        }
+        
+        const allCategories = ['الكل', ...categoryNames];
+        setCategories(allCategories);
+        
+        // Set initial filter state
+        setFilters(prev => ({
+          ...prev,
+          categories: ['الكل']
+        }));
       } catch (error) {
-        console.error('Failed to load filter options:', error);
+        console.error('Failed to load categories:', error);
+        // Fallback to empty categories
+        setCategories(['الكل']);
       }
     };
-    loadFilterOptions();
+    
+    loadCategories();
   }, []);
 
   useEffect(() => {
     const fetchPage = async () => {
-      setLoading(true);
+      setBooksLoading(true);
       try {
+        // Prepare filters for backend
+        const backendFilters = { ...filters };
+
+        // If using the old category system, convert to new format
+        if (selectedCategory && selectedCategory !== 'الكل') {
+          backendFilters.categories = [selectedCategory];
+        } else if (filters.categories.includes('الكل') || filters.categories.length === 0) {
+          // Remove 'الكل' from categories as backend doesn't need it
+          backendFilters.categories = [];
+        } else {
+          // Remove 'الكل' if present and keep only actual categories
+          backendFilters.categories = filters.categories.filter(cat => cat !== 'الكل');
+        }
+
+        console.log('Fetching books with filters:', {
+          selectedCategory,
+          filters: filters.categories,
+          backendFilters: backendFilters.categories
+        });
+
         const params = {
           page,
           limit,
           search: searchTerm || undefined,
-          category: selectedCategory !== 'الكل' ? selectedCategory : undefined,
-          filters: JSON.stringify(filters),
+          filters: JSON.stringify(backendFilters),
           sort: sortBy
         };
         const res = await apiService.getBooks(params);
@@ -96,12 +140,14 @@ const BookStore = () => {
         setBooks(items);
         setFilteredBooks(items);
         setTotal(typeof res.data.total === 'number' ? res.data.total : 0);
-      } catch {
+      } catch (error) {
+        console.error('Error fetching books:', error);
         setBooks([]);
         setFilteredBooks([]);
         setTotal(0);
       } finally {
-        setLoading(false);
+        setBooksLoading(false);
+        setInitialLoading(false);
       }
     };
     fetchPage();
@@ -113,7 +159,8 @@ const BookStore = () => {
   //   // ... old filtering logic removed
   // }, [books, searchTerm, selectedCategory]);
 
-  if (loading) {
+  // Show initial loading only on first load
+  if (initialLoading) {
     return (
       <div className="loading">
         <div className="spinner"></div>
@@ -177,10 +224,10 @@ const BookStore = () => {
           <div className={`filters-sidebar ${showFilters ? 'mobile-show' : ''}`}>
             <BookFilters
               filters={filters}
-              onFiltersChange={setFilters}
+              onFiltersChange={debouncedSetFilters}
               sortBy={sortBy}
               onSortChange={setSortBy}
-              categories={categories.filter(cat => cat !== 'الكل')}
+              categories={categories}
               authors={authors}
               publishers={publishers}
             />
@@ -188,26 +235,55 @@ const BookStore = () => {
 
           {/* Books Grid */}
           <div className="books-content">
-            <div className="books-grid">
-              {filteredBooks.map((book) => (
-                <BookCard key={book.id} book={book} />
-              ))}
+            <div className="books-grid" style={{ 
+              opacity: booksLoading ? 0.6 : 1,
+              transition: 'opacity 0.3s ease'
+            }}>
+              {filteredBooks.length > 0 ? (
+                filteredBooks.map((book) => (
+                  <BookCard key={book.id} book={book} />
+                ))
+              ) : !booksLoading ? (
+                <div className="no-books-message" style={{
+                  gridColumn: '1 / -1',
+                  textAlign: 'center',
+                  padding: '3rem 1rem',
+                  color: '#6b7280'
+                }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>📚</div>
+                  <h3 style={{ marginBottom: '1rem', color: '#374151', fontSize: '1.3rem' }}>لم نجد أي كتب</h3>
+                  <p style={{ fontSize: '0.95rem' }}>جرب البحث بكلمات مختلفة أو اختر تصنيفاً آخر</p>
+                </div>
+              ) : null}
             </div>
+            {booksLoading && (
+              <div className="books-loading" style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                background: 'rgba(255, 255, 255, 0.9)',
+                padding: '1rem 2rem',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+              }}>
+                <div className="spinner" style={{
+                  width: '20px',
+                  height: '20px',
+                  border: '2px solid #f3f4f6',
+                  borderTop: '2px solid #1e3a8a',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }}></div>
+                <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>جاري التحميل...</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* No Results Message */}
-        {filteredBooks.length === 0 && !loading && (
-          <div style={{
-            textAlign: 'center',
-            padding: '3rem 1rem',
-            color: '#6b7280'
-          }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>📚</div>
-            <h3 style={{ marginBottom: '1rem', color: '#374151', fontSize: '1.3rem' }}>لم نجد أي كتب</h3>
-            <p style={{ fontSize: '0.95rem' }}>جرب البحث بكلمات مختلفة أو اختر تصنيفاً آخر</p>
-          </div>
-        )}
 
         {/* Pagination */}
         {total > 0 && (

@@ -15,6 +15,12 @@ export const orderService = {
     const payload = { customerInfo, items, paymentMethod, total };
     const res = await client.post('/orders', payload);
     return res.data;
+  },
+
+  initializePayment: async ({ payment_method, amount, currency, order_id, customer_info }) => {
+    const payload = { payment_method, amount, currency, order_id, customer_info };
+    const res = await client.post('/payments/initialize', payload);
+    return res.data;
   }
 };
 

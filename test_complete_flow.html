@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Complete Payment Flow</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>اختبار نظام الدفع الكامل</h1>
+
+        <div class="test-section info">
+            <h3>🔍 اختبار شامل لتدفق الدفع</h3>
+            <p>هذا الاختبار يحاكي ما يحدث في Cart.js عند النقر على "إتمام الدفع"</p>
+        </div>
+
+        <div class="test-section">
+            <h3>الخطوة 1: اختبار API طرق الدفع</h3>
+            <button class="btn-primary" onclick="testPaymentMethods()">اختبار طرق الدفع</button>
+            <div id="payment-methods-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>الخطوة 2: إنشاء طلب</h3>
+            <button class="btn-primary" onclick="testOrderCreation()">إنشاء طلب تجريبي</button>
+            <div id="order-creation-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>الخطوة 3: تهيئة الدفع</h3>
+            <button class="btn-primary" onclick="testPaymentInitialization()">تهيئة دفع STC Pay</button>
+            <div id="payment-init-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>الخطوة 4: اختبار التدفق الكامل</h3>
+            <button class="btn-success" onclick="testCompleteFlow()">اختبار التدفق الكامل</button>
+            <div id="complete-flow-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 نتائج الاختبار</h3>
+            <div id="test-summary"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let testResults = {};
+
+        function displayResult(elementId, success, message, data = null) {
+            const element = document.getElementById(elementId);
+            element.className = `test-section ${success ? 'success' : 'error'}`;
+            element.innerHTML = `
+                <p><strong>${success ? '✅' : '❌'} ${message}</strong></p>
+                ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+            `;
+        }
+
+        async function testPaymentMethods() {
+            try {
+                const response = await fetch(`${API_BASE}/payment_methods?enabled=true`);
+                const data = await response.json();
+
+                if (response.ok && data.payment_methods) {
+                    const stcPay = data.payment_methods.find(m => m.id === 'stc_pay');
+                    testResults.paymentMethods = true;
+                    displayResult('payment-methods-result', true,
+                        `تم العثور على ${data.payment_methods.length} طريقة دفع، STC Pay ${stcPay ? 'متوفر' : 'غير متوفر'}`,
+                        { total_methods: data.payment_methods.length, stc_pay_available: !!stcPay }
+                    );
+                } else {
+                    testResults.paymentMethods = false;
+                    displayResult('payment-methods-result', false, 'فشل في تحميل طرق الدفع', data);
+                }
+            } catch (error) {
+                testResults.paymentMethods = false;
+                displayResult('payment-methods-result', false, 'خطأ في الاتصال', { error: error.message });
+            }
+        }
+
+        async function testOrderCreation() {
+            try {
+                const orderData = {
+                    customerInfo: {
+                        name: 'أحمد محمد',
+                        email: 'ahmed@example.com',
+                        phone: '+966501234567'
+                    },
+                    items: [{
+                        id: 1,
+                        title: 'كتاب تجريبي',
+                        price: 50.00,
+                        quantity: 1
+                    }],
+                    paymentMethod: 'stc_pay',
+                    total: 50.00
+                };
+
+                const response = await fetch(`${API_BASE}/orders`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(orderData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    testResults.orderCreation = { success: true, order_id: data.order_id, total: data.total_amount };
+                    displayResult('order-creation-result', true,
+                        `تم إنشاء الطلب بنجاح: ${data.order_id}`,
+                        { order_id: data.order_id, total_amount: data.total_amount }
+                    );
+                } else {
+                    testResults.orderCreation = { success: false };
+                    displayResult('order-creation-result', false, 'فشل في إنشاء الطلب', data);
+                }
+            } catch (error) {
+                testResults.orderCreation = { success: false };
+                displayResult('order-creation-result', false, 'خطأ في إنشاء الطلب', { error: error.message });
+            }
+        }
+
+        async function testPaymentInitialization() {
+            if (!testResults.orderCreation?.success) {
+                displayResult('payment-init-result', false, 'يجب إنشاء طلب أولاً');
+                return;
+            }
+
+            try {
+                const paymentData = {
+                    payment_method: 'stc_pay',
+                    amount: testResults.orderCreation.total,
+                    currency: 'SAR',
+                    order_id: testResults.orderCreation.order_id,
+                    customer_info: {
+                        name: 'أحمد محمد',
+                        email: 'ahmed@example.com',
+                        phone: '+966501234567'
+                    }
+                };
+
+                const response = await fetch(`${API_BASE}/payments/initialize`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(paymentData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'redirect') {
+                    testResults.paymentInitialization = true;
+                    displayResult('payment-init-result', true,
+                        'تم تهيئة الدفع بنجاح! سيتم التوجيه إلى صفحة الدفع',
+                        { redirect_url: data.redirect_url, transaction_id: data.transaction_id }
+                    );
+                } else {
+                    testResults.paymentInitialization = false;
+                    displayResult('payment-init-result', false, 'فشل في تهيئة الدفع', data);
+                }
+            } catch (error) {
+                testResults.paymentInitialization = false;
+                displayResult('payment-init-result', false, 'خطأ في تهيئة الدفع', { error: error.message });
+            }
+        }
+
+        async function testCompleteFlow() {
+            testResults = {};
+
+            document.getElementById('complete-flow-result').innerHTML = '<p>🔄 جاري اختبار التدفق الكامل...</p>';
+
+            // Test all steps in sequence
+            await testPaymentMethods();
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            await testOrderCreation();
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            await testPaymentInitialization();
+
+            // Summary
+            const allPassed = testResults.paymentMethods &&
+                             testResults.orderCreation?.success &&
+                             testResults.paymentInitialization;
+
+            displayResult('complete-flow-result', allPassed,
+                allPassed ? 'جميع الاختبارات نجحت! التدفق يعمل بشكل صحيح' : 'بعض الاختبارات فشلت',
+                testResults
+            );
+
+            // Update summary
+            updateTestSummary();
+        }
+
+        function updateTestSummary() {
+            const summary = document.getElementById('test-summary');
+            const allPassed = testResults.paymentMethods &&
+                             testResults.orderCreation?.success &&
+                             testResults.paymentInitialization;
+
+            summary.className = `test-section ${allPassed ? 'success' : 'error'}`;
+            summary.innerHTML = `
+                <h4>${allPassed ? '✅ جميع الاختبارات نجحت!' : '❌ هناك مشاكل في النظام'}</h4>
+                <ul>
+                    <li>طرق الدفع: ${testResults.paymentMethods ? '✅ تعمل' : '❌ لا تعمل'}</li>
+                    <li>إنشاء الطلب: ${testResults.orderCreation?.success ? '✅ يعمل' : '❌ لا يعمل'}</li>
+                    <li>تهيئة الدفع: ${testResults.paymentInitialization ? '✅ يعمل' : '❌ لا يعمل'}</li>
+                </ul>
+                ${allPassed ? `
+                    <p><strong>🎉 نظام الدفع جاهز للاستخدام!</strong></p>
+                    <p>يمكنك الآن استخدام Cart.js في الموقع بنجاح.</p>
+                ` : `
+                    <p><strong>⚠️ يحتاج النظام إلى إصلاح قبل الاستخدام</strong></p>
+                `}
+            `;
+        }
+
+        // Run automatic test on page load
+        window.onload = function() {
+            setTimeout(testCompleteFlow, 1000);
+        };
+    </script>
+</body>
+</html>

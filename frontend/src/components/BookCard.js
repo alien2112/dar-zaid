@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
+import { FiShoppingBag } from 'react-icons/fi';
 
 const BookCard = React.memo(({ book }) => {
   const { addToCart } = useCart();
@@ -8,135 +9,138 @@ const BookCard = React.memo(({ book }) => {
   return (
     <div className="book-card" style={{ 
       background: 'white',
-      borderRadius: '12px',
+      borderRadius: '8px',
       overflow: 'hidden',
-      boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
       transition: 'all 0.3s ease',
-      border: '1px solid #f0f0f0',
+      border: '1px solid #eee',
       height: '100%',
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      position: 'relative'
     }}>
-      <div style={{
-        height: '250px',
-        background: `url(${book.image_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-size="24">No Image</text></svg>'}) no-repeat center center / cover`,
-        position: 'relative',
-        overflow: 'hidden',
-        backgroundColor: '#f3f4f6'
-      }}>
+      <Link 
+        to={`/book/${book.id}`} 
+        style={{ 
+          textDecoration: 'none',
+          color: 'inherit',
+          display: 'block',
+          height: '140px',
+          position: 'relative'
+        }}
+      >
         <div style={{
-          position: 'absolute',
-          top: '8px',
-          right: '8px',
-          background: book.stock_quantity > 0 ? '#10b981' : '#ef4444',
-          color: 'white',
-          padding: '0.25rem 0.5rem',
-          borderRadius: '8px',
-          fontSize: '0.7rem',
-          fontWeight: '600',
-          maxWidth: 'calc(100% - 16px)',
-          textAlign: 'center'
-        }}>
-          {book.stock_quantity > 0 ? `متوفر (${book.stock_quantity})` : 'نفد المخزون'}
-        </div>
-      </div>
+          height: '100%',
+          background: `url(${book.image_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-size="24">No Image</text></svg>'}) no-repeat center center / cover`,
+          position: 'relative',
+          overflow: 'hidden',
+          backgroundColor: '#f8fafc'
+        }}/>
+      </Link>
 
       <div className="book-content" style={{ 
         padding: '1rem',
         display: 'flex',
         flexDirection: 'column',
-        flex: 1
+        gap: '0.5rem',
+        textAlign: 'center'
       }}>
-        <h3 className="book-title" style={{ 
-          fontSize: '1.1rem',
-          fontWeight: '600',
-          color: '#2c3e50',
-          marginBottom: '0.5rem',
-          lineHeight: 1.4,
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          'line-clamp': 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden'
-        }}>
-          <Link to={`/book/${book.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{book.title}</Link>
-        </h3>
+        <Link 
+          to={`/book/${book.id}`} 
+          style={{ 
+            color: 'inherit', 
+            textDecoration: 'none',
+            display: 'block'
+          }}
+        >
+          <h3 className="book-title" style={{ 
+            fontSize: '1rem',
+            fontWeight: '600',
+            color: '#1e293b',
+            lineHeight: 1.4,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            'line-clamp': 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            marginBottom: '0.25rem',
+            minHeight: '2.8em'
+          }}>
+            {book.title}
+          </h3>
+        </Link>
 
-        <p className="book-author" style={{ 
-          color: '#64748b',
-          fontSize: '0.9rem',
-          marginBottom: '0.75rem',
-          display: '-webkit-box',
-          WebkitLineClamp: 1,
-          'line-clamp': 1,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden'
-        }}>
-          المؤلف: {book.author}
-        </p>
-
-        <p className="book-description" style={{ 
-          color: '#6b7280',
-          fontSize: '0.85rem',
-          lineHeight: 1.5,
-          marginBottom: '1rem',
-          display: '-webkit-box',
-          WebkitLineClamp: 3,
-          'line-clamp': 3,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-          flex: 1
-        }}>
-          {book.description}
-        </p>
+        {book.original_price && book.original_price > book.price && (
+          <div className="original-price" style={{
+            color: '#94a3b8',
+            fontSize: '0.9rem',
+            textDecoration: 'line-through'
+          }}>
+            {book.original_price} ر.س
+          </div>
+        )}
 
         <div className="book-price" style={{ 
-          fontSize: '1.2rem',
+          fontSize: '1.1rem',
           fontWeight: '700',
-          color: '#1e3a8a',
-          marginBottom: '0.75rem'
+          color: '#2563eb'
         }}>
-          {book.price} ريال
-        </div>
-
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '1rem'
-        }}>
-          <span style={{
-            background: '#f3f4f6',
-            color: '#6b7280',
-            padding: '0.25rem 0.5rem',
-            borderRadius: '12px',
-            fontSize: '0.75rem',
-            fontWeight: '500',
-            maxWidth: '100%',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
-          }}>
-            {book.category}
-          </span>
+          {book.price} ر.س
         </div>
 
         <button
-          className={`btn ${book.stock_quantity > 0 ? 'btn-primary' : 'btn-secondary'}`}
-          disabled={book.stock_quantity === 0}
           onClick={() => addToCart(book)}
           style={{
             width: '100%',
-            opacity: book.stock_quantity === 0 ? 0.6 : 1,
-            cursor: book.stock_quantity === 0 ? 'not-allowed' : 'pointer',
-            minHeight: '44px',
+            backgroundColor: '#1e3a8a',
+            color: 'white',
+            border: 'none',
+            borderRadius: '25px',
+            padding: '0.75rem 1rem',
             fontSize: '0.9rem',
-            padding: '12px 16px'
+            fontWeight: '500',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            marginTop: '0.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            minHeight: '44px'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.backgroundColor = '#1e40af';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.backgroundColor = '#1e3a8a';
+          }}
+          onMouseDown={(e) => {
+            e.target.style.transform = 'scale(0.98)';
+          }}
+          onMouseUp={(e) => {
+            e.target.style.transform = 'scale(1)';
           }}
         >
-          {book.stock_quantity > 0 ? 'أضف للسلة' : 'نفد المخزون'}
+          <span>أضف للسلة</span>
+          <FiShoppingBag size={16} />
         </button>
       </div>
+
+      {book.discount_percentage && (
+        <div style={{
+          position: 'absolute',
+          top: '1rem',
+          right: '1rem',
+          background: '#dc2626',
+          color: 'white',
+          padding: '0.25rem 0.5rem',
+          borderRadius: '4px',
+          fontSize: '0.8rem',
+          fontWeight: '600'
+        }}>
+          خصم {book.discount_percentage}%
+        </div>
+      )}
     </div>
   );
 });

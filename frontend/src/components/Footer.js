@@ -1,6 +1,36 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { apiService } from '../services/api';
 
 const Footer = React.memo(() => {
+  const [links, setLinks] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await apiService.getSettings();
+        const settings = (res.data && res.data.settings) || {};
+        const social = Array.isArray(settings.social_links) ? settings.social_links : [];
+        if (!mounted) return;
+        const activeSorted = social
+          .filter((l) => l && l.url && l.is_active)
+          .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+        setLinks(activeSorted);
+      } catch {
+        setLinks([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const fallback = [
+    { label: 'X', url: 'https://x.com/darzaid22' },
+    { label: '📷', url: 'https://instagram.com/dar.zaid.2022', title: 'انستقرام' },
+    { label: '💬', url: 'https://wa.me/966561123119', title: 'واتساب' },
+    { label: '♪', url: 'https://www.tiktok.com/@dar.zaid.2022', title: 'تيك توك' },
+  ];
+  const items = links && links.length > 0 ? links.map(l => ({ label: l.label || l.platform || 'Link', url: l.url, title: l.platform || l.label })) : fallback;
+
   return (
     <footer className="footer">
       <div className="container">
@@ -34,9 +64,11 @@ const Footer = React.memo(() => {
           <div className="footer-section">
             <h3>تابعنا</h3>
             <div className="social-icons">
-              <a href="#" className="social-icon">f</a>
-              <a href="#" className="social-icon">t</a>
-              <a href="#" className="social-icon">i</a>
+              {(items || []).map((it, idx) => (
+                <a key={idx} href={it.url} target="_blank" rel="noopener noreferrer" className="social-icon" title={it.title || it.label}>
+                  {it.label}
+                </a>
+              ))}
             </div>
           </div>
         </div>

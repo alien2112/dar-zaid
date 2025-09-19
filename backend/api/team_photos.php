@@ -1,18 +1,7 @@
 <?php
+// Include centralized CORS configuration
+require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
-
-header('Content-Type: application/json');
-$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : 'http://localhost:3000';
-header('Access-Control-Allow-Origin: ' . $origin);
-header('Vary: Origin');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Credentials: true');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { 
-    http_response_code(200); 
-    exit(); 
-}
 
 $database = new Database();
 $db = $database->getConnection();
@@ -176,3 +165,9 @@ if ($method === 'GET') {
     echo json_encode(['message' => 'Method not allowed'], JSON_UNESCAPED_UNICODE);
 }
 ?>
+
+
+
+
+
+

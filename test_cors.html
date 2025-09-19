@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CORS Configuration Test</h1>
+        <p>This page tests the CORS configuration for your backend API.</p>
+        
+        <div class="test-section info">
+            <h3>Test Information</h3>
+            <p><strong>Current Origin:</strong> <span id="current-origin"></span></p>
+            <p><strong>Backend URL:</strong> <span id="backend-url"></span></p>
+        </div>
+
+        <div class="test-section">
+            <h3>Test CORS Headers</h3>
+            <button onclick="testCORS()">Test CORS Configuration</button>
+            <button onclick="testPreflight()">Test Preflight Request</button>
+            <button onclick="clearResults()">Clear Results</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Set current origin and backend URL
+        document.getElementById('current-origin').textContent = window.location.origin;
+        document.getElementById('backend-url').textContent = 'http://localhost/backend/test_cors.php';
+
+        function addResult(title, content, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-section ${type}`;
+            div.innerHTML = `
+                <h4>${title}</h4>
+                <pre>${content}</pre>
+            `;
+            results.appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testCORS() {
+            try {
+                const response = await fetch('http://localhost/backend/test_cors.php', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult('✅ CORS Test Successful', JSON.stringify(data, null, 2), 'success');
+                } else {
+                    addResult('❌ CORS Test Failed', `Status: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                addResult('❌ CORS Test Error', error.message, 'error');
+            }
+        }
+
+        async function testPreflight() {
+            try {
+                const response = await fetch('http://localhost/backend/test_cors.php', {
+                    method: 'OPTIONS',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'Content-Type, Authorization'
+                    }
+                });
+
+                if (response.ok) {
+                    const headers = {};
+                    for (let [key, value] of response.headers.entries()) {
+                        if (key.toLowerCase().startsWith('access-control-')) {
+                            headers[key] = value;
+                        }
+                    }
+                    addResult('✅ Preflight Test Successful', JSON.stringify(headers, null, 2), 'success');
+                } else {
+                    addResult('❌ Preflight Test Failed', `Status: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                addResult('❌ Preflight Test Error', error.message, 'error');
+            }
+        }
+
+        // Auto-run test on page load
+        window.addEventListener('load', () => {
+            addResult('ℹ️ Page Loaded', 'Ready to test CORS configuration. Click the test buttons above.', 'info');
+        });
+    </script>
+</body>
+</html>

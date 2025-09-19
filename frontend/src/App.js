@@ -23,6 +23,7 @@ const BookDetails = lazy(() => import('./pages/BookDetails'));
 const PublishingPackages = lazy(() => import('./pages/PublishingPackages'));
 const Releases = lazy(() => import('./pages/Releases'));
 const Blog = lazy(() => import('./pages/Blog'));
+const BlogPostDetail = lazy(() => import('./pages/BlogPostDetail'));
 const Contact = lazy(() => import('./pages/Contact'));
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
@@ -30,6 +31,7 @@ const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const AdminSettings = lazy(() => import('./pages/AdminSettings'));
 const AdminReports = lazy(() => import('./pages/AdminReports'));
 const AdminFilterManagement = lazy(() => import('./pages/AdminFilterManagement'));
+const AdminCategories = lazy(() => import('./pages/AdminCategories'));
 const PackageDetails = lazy(() => import('./pages/PackageDetails'));
 const Cart = lazy(() => import('./pages/Cart'));
 
@@ -54,6 +56,7 @@ function App() {
               <Route path="/packages" element={<PublishingPackages />} />
               <Route path="/releases" element={<Releases />} />
               <Route path="/blog" element={<Blog />} />
+              <Route path="/blog/:id" element={<BlogPostDetail />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
@@ -88,6 +91,14 @@ function App() {
                 element={
                   <ProtectedRoute requireAdmin={true}>
                     <AdminFilterManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/categories"
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminCategories />
                   </ProtectedRoute>
                 }
               />

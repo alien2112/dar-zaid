@@ -1,20 +1,10 @@
 <?php
+// Include centralized CORS configuration
+require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../services/sendgrid_service.php';
-
-header('Content-Type: application/json');
-$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
-header('Access-Control-Allow-Origin: ' . $origin);
-header('Vary: Origin');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Credentials: true');
+require_once __DIR__ . '/../services/universal_email_service.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
-if ($method === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
 
 $database = new Database();
 $db = $database->getConnection();
@@ -138,12 +128,14 @@ function handleOrderCreation($db) {
             $paymentMethod = $data['paymentMethod'] ?? null;
             $total = isset($data['total']) ? floatval($data['total']) : null;
 
-            // Convert to new format
+            // Convert to new format with legacy-compatible totals
             $data = [
                 'customer_info' => $customerInfo,
                 'items' => $items,
                 'payment_method' => $paymentMethod,
-                'total' => $total,
+                'total_amount' => $total, // Use total_amount instead of total for legacy
+                'shipping_cost' => 0, // Default for legacy
+                'tax_amount' => 0, // Default for legacy, total already includes everything
                 'idempotency_key' => 'legacy_' . time() . '_' . uniqid()
             ];
         }
@@ -280,11 +272,31 @@ function createOrderWithTransaction($db, $data) {
         $calculated_total = $calculated_subtotal + $shipping_cost + $tax_amount;
 
         // Validate client-provided total matches server calculation (if provided)
-        $client_total = (float)($data['total'] ?? $calculated_total);
-        if (abs($calculated_total - $client_total) > 0.01) {
-            // Allow small discrepancies for legacy compatibility
-            if (abs($calculated_total - $client_total) > 1.0) {
-                throw new Exception('Total amount mismatch. Expected: ' . $calculated_total . ', Received: ' . $client_total);
+        $client_total = (float)($data['total_amount'] ?? $data['total'] ?? $calculated_total);
+
+        // For legacy format with 'total' field, use the provided total and calculate shipping/tax to match
+        if (isset($data['idempotency_key']) && strpos($data['idempotency_key'], 'legacy_') === 0) {
+            // Legacy format - trust the frontend total and adjust shipping/tax
+            $final_total = $client_total;
+            $remaining_amount = $final_total - $calculated_subtotal;
+
+            if ($remaining_amount >= 0) {
+                // Distribute remaining amount between shipping and tax (favor tax for VAT compliance)
+                $tax_amount = $remaining_amount * 0.75; // Assume most is tax
+                $shipping_cost = $remaining_amount - $tax_amount;
+            } else {
+                // If total is less than subtotal, set tax and shipping to 0
+                $tax_amount = 0;
+                $shipping_cost = 0;
+                $final_total = $calculated_subtotal;
+            }
+            $calculated_total = $final_total;
+        } else {
+            // New format - validate totals match
+            if (abs($calculated_total - $client_total) > 0.01) {
+                if (abs($calculated_total - $client_total) > 1.0) {
+                    throw new Exception('Total amount mismatch. Expected: ' . $calculated_total . ', Received: ' . $client_total);
+                }
             }
         }
 
@@ -316,7 +328,7 @@ function createOrderWithTransaction($db, $data) {
         
         // Send order confirmation email
         try {
-            $sendGridService = new SendGridService();
+            $emailService = new UniversalEmailService();
             $orderData = [
                 'order_id' => $order_id,
                 'customer_info' => $data['customer_info'] ?? [],
@@ -327,7 +339,7 @@ function createOrderWithTransaction($db, $data) {
                 'total_amount' => $calculated_total,
                 'status' => 'pending'
             ];
-            $sendGridService->sendOrderConfirmation($orderData);
+            $emailService->sendOrderConfirmation($orderData);
         } catch (Exception $e) {
             // Log error but don't fail the order creation
             error_log('Failed to send order confirmation email: ' . $e->getMessage());

@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 
-const BookFilters = ({ 
-  filters, 
-  onFiltersChange, 
-  sortBy, 
+const BookFilters = ({
+  filters,
+  onFiltersChange,
+  sortBy,
   onSortChange,
   categories = [],
   authors = [],
   publishers = []
 }) => {
-  console.log('BookFilters received categories:', categories);
   const [expandedFilters, setExpandedFilters] = useState({
     categories: true,
     price: true,
@@ -56,7 +55,7 @@ const BookFilters = ({
 
   const clearAllFilters = () => {
     onFiltersChange({
-      categories: [],
+      categories: ['الكل'],
       priceRange: { min: 0, max: Infinity },
       authors: [],
       publishers: [],
@@ -107,22 +106,36 @@ const BookFilters = ({
         </div>
         {expandedFilters.categories && (
           <div className="filter-content">
-            {categories.map(category => (
-              <label key={category} className="filter-option">
-                <input
-                  type="radio"
-                  name="category"
-                  value={category}
-                  checked={filters.categories.includes(category)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      handleFilterChange('categories', [category]);
+            {categories.length > 0 ? (
+              categories.map(category => (
+                <label key={category} className="filter-option">
+                  <input
+                    type="radio"
+                    name="category"
+                    value={category}
+                    checked={
+                      category === 'الكل'
+                        ? (filters.categories.includes('الكل') || filters.categories.length === 0)
+                        : filters.categories.includes(category) && !filters.categories.includes('الكل')
                     }
-                  }}
-                />
-                <span className="filter-label">{category}</span>
-              </label>
-            ))}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        if (category === 'الكل') {
+                          handleFilterChange('categories', ['الكل']);
+                        } else {
+                          handleFilterChange('categories', [category]);
+                        }
+                      }
+                    }}
+                  />
+                  <span className="filter-label">{category}</span>
+                </label>
+              ))
+            ) : (
+              <div style={{ padding: '0.5rem', color: '#6b7280', textAlign: 'center' }}>
+                لا توجد تصنيفات متاحة
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -196,6 +196,23 @@
 
 .books-content {
   flex: 1;
+  min-height: 400px; /* Prevent layout shift during loading */
+  position: relative; /* For absolute positioned loading indicator */
+}
+
+.books-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+.books-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  padding: 2rem;
 }
 
 /* Responsive Design */
@@ -241,6 +258,15 @@
   
   .bookstore-layout {
     gap: 0.5rem;
+  }
+  
+  .books-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+  }
+  
+  .books-content {
+    min-height: 300px;
   }
 }
 

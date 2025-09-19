@@ -1,21 +1,51 @@
 @import './styles/ImageUpload.css';
 
+/* Global Link Styles - Remove underlines and visited styling */
+a, a:link, a:visited, a:hover, a:active, a:focus {
+  text-decoration: none !important;
+}
+
+/* Ensure visited links look the same as unvisited links */
+a:visited {
+  color: inherit;
+}
+
+/* Remove any default browser link styling and focus outlines */
+a:focus {
+  outline: none;
+}
+
+/* Additional global link reset to ensure consistency */
+a {
+  text-decoration: none !important;
+  color: inherit;
+}
+
+/* Override any inherited text-decoration for specific link states */
+a:link, a:visited, a:hover, a:active, a:focus {
+  text-decoration: none !important;
+}
+
 /* Contact Page Styles */
 .contact-page {
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: hidden;
 }
 
 /* Hero Section */
 .contact-hero {
   position: relative;
-  min-height: 60vh;
+  height: 60vh;
   display: flex;
   align-items: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
 
 .floating-elements {
@@ -25,6 +55,8 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
 }
 
 .floating-circle {
@@ -40,22 +72,28 @@
   top: 20%;
   left: 10%;
   animation-delay: 0s;
+  max-width: 80px;
+  max-height: 80px;
 }
 
 .circle-2 {
   width: 120px;
   height: 120px;
   top: 60%;
-  right: 15%;
+  right: 10%;
   animation-delay: 2s;
+  max-width: 120px;
+  max-height: 120px;
 }
 
 .circle-3 {
   width: 60px;
   height: 60px;
   top: 40%;
-  right: 30%;
+  right: 20%;
   animation-delay: 4s;
+  max-width: 60px;
+  max-height: 60px;
 }
 
 .floating-square {
@@ -70,14 +108,18 @@
   top: 30%;
   left: 20%;
   animation-delay: 1s;
+  max-width: 40px;
+  max-height: 40px;
 }
 
 .square-2 {
   width: 60px;
   height: 60px;
   top: 70%;
-  right: 25%;
+  right: 15%;
   animation-delay: 3s;
+  max-width: 60px;
+  max-height: 60px;
 }
 
 @keyframes float {
@@ -85,7 +127,7 @@
     transform: translateY(0px) rotate(0deg);
   }
   50% {
-    transform: translateY(-20px) rotate(180deg);
+    transform: translateY(-15px) rotate(90deg);
   }
 }
 
@@ -147,9 +189,13 @@
 .hero-stats {
   display: flex;
   justify-content: center;
-  gap: 3rem;
+  gap: 2rem;
   margin-top: 3rem;
   flex-wrap: wrap;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0 1rem;
 }
 
 .stat-item {
@@ -161,11 +207,64 @@
   border: 1px solid rgba(255, 255, 255, 0.6);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  min-width: 0;
+  flex: 0 1 auto;
+  max-width: 200px;
 }
 
 .stat-item:hover {
   transform: translateY(-5px);
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+/* Special styling for technical support */
+.tech-support-special {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.3));
+  border: 2px solid rgba(255, 215, 0, 0.8);
+  box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
+  animation: techSupportGlow 2s ease-in-out infinite alternate;
+}
+
+.tech-support-special:hover {
+  transform: translateY(-8px) scale(1.05);
+  box-shadow: 0 15px 40px rgba(255, 215, 0, 0.4);
+}
+
+.tech-support-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: linear-gradient(45deg, #ffd700, #ffed4e);
+  color: #1e3a8a;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.3rem 0.6rem;
+  border-radius: 12px;
+  box-shadow: 0 3px 10px rgba(255, 215, 0, 0.5);
+  animation: badgePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes techSupportGlow {
+  0% {
+    box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
+    border-color: rgba(255, 215, 0, 0.8);
+  }
+  100% {
+    box-shadow: 0 8px 25px rgba(255, 215, 0, 0.6);
+    border-color: rgba(255, 215, 0, 1);
+  }
+}
+
+@keyframes badgePulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 3px 10px rgba(255, 215, 0, 0.5);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 5px 15px rgba(255, 215, 0, 0.7);
+  }
 }
 
 .stat-number {
@@ -174,6 +273,39 @@
   color: #ffffff;
   margin-bottom: 0.5rem;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+/* Enhanced animation for counting numbers */
+.stat-number {
+  animation: numberCount 0.5s ease-out;
+}
+
+@keyframes numberCount {
+  0% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Special animation for time progression */
+.stat-item:nth-child(2) .stat-number {
+  animation: timeProgression 0.3s ease-out;
+}
+
+@keyframes timeProgression {
+  0% {
+    transform: translateX(-10px);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .stat-label {
@@ -186,9 +318,13 @@
 /* Contact Content */
 .contact-content {
   position: relative;
-  z-index: 2;
-  margin-top: -5rem;
-  padding-bottom: 4rem;
+  z-index: 3;
+  margin-top: 1rem;
+  padding-bottom: 2rem;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 .contact-grid {
@@ -207,6 +343,8 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+  z-index: 4;
 }
 
 .contact-form-card:hover {
@@ -223,6 +361,8 @@
   font-size: 3rem;
   margin-bottom: 1rem;
   display: block;
+  position: relative;
+  z-index: 5;
 }
 
 .card-header h2 {
@@ -415,6 +555,8 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+  z-index: 4;
 }
 
 .contact-info-card:hover {
@@ -536,6 +678,8 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+  z-index: 4;
 }
 
 .map-card:hover {
@@ -648,11 +792,14 @@
   }
   
   .hero-stats {
-    gap: 1.5rem;
+    gap: 1rem;
+    padding: 0 0.5rem;
   }
   
   .stat-item {
     padding: 1rem 1.5rem;
+    max-width: 150px;
+    flex: 0 1 auto;
   }
   
   .contact-form-card,
@@ -681,10 +828,21 @@
   .hero-stats {
     flex-direction: column;
     gap: 1rem;
+    padding: 0 0.25rem;
+  }
+  
+  .stat-item {
+    max-width: 100%;
+    width: 100%;
   }
   
   .contact-content {
     margin-top: -3rem;
+  }
+  
+  .floating-circle,
+  .floating-square {
+    display: none; /* Hide floating elements on very small screens */
   }
 }
 
@@ -694,10 +852,17 @@
   box-sizing: border-box;
 }
 
+html {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+}
+
 body {
   font-family: 'Tajawal', 'Amiri', 'Noto Sans Arabic', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: #fafafa;
   direction: rtl;
+  overflow-x: hidden;
   text-align: right;
   line-height: 1.6;
   color: #2c3e50;
@@ -1186,6 +1351,106 @@ body {
   padding: 3rem 2rem;
 }
 
+/* New Layout for Book of the Week */
+.book-of-week-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 3rem;
+  position: relative;
+}
+
+.book-of-week-main {
+  flex: 1;
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+/* Book of the Week Badge Section - Right Side */
+.book-of-week-badge-section {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 200px;
+  height: 120px;
+}
+
+.book-of-week-badge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 2rem;
+  z-index: 2;
+}
+
+.book-text {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1e3a8a;
+  font-family: 'Amiri', serif;
+  margin-left: 0.5rem;
+  text-shadow: 0 2px 4px rgba(30, 58, 138, 0.2);
+}
+
+.week-text {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: white;
+  font-family: 'Amiri', serif;
+  position: relative;
+  z-index: 3;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Brushstroke Background for "الأسبوع" */
+.book-of-week-badge::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 180px;
+  height: 80px;
+  background: linear-gradient(135deg, #d97706, #f59e0b, #fbbf24);
+  border-radius: 50px 20px 50px 20px;
+  z-index: 1;
+  box-shadow: 
+    0 8px 25px rgba(217, 119, 6, 0.3),
+    inset 0 2px 4px rgba(255, 255, 255, 0.2);
+  animation: brushstrokeGlow 3s ease-in-out infinite alternate;
+}
+
+/* Additional brushstroke effect */
+.book-of-week-badge::after {
+  content: '';
+  position: absolute;
+  top: 45%;
+  left: 35%;
+  transform: translate(-50%, -50%) rotate(-15deg);
+  width: 120px;
+  height: 60px;
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  border-radius: 30px 10px 30px 10px;
+  z-index: 0;
+  opacity: 0.7;
+  box-shadow: 0 4px 15px rgba(217, 119, 6, 0.2);
+}
+
+@keyframes brushstrokeGlow {
+  0% {
+    box-shadow: 
+      0 8px 25px rgba(217, 119, 6, 0.3),
+      inset 0 2px 4px rgba(255, 255, 255, 0.2);
+  }
+  100% {
+    box-shadow: 
+      0 12px 35px rgba(217, 119, 6, 0.4),
+      inset 0 2px 4px rgba(255, 255, 255, 0.3);
+  }
+}
+
 .book-of-week-loading {
   display: flex;
   flex-direction: column;
@@ -1203,86 +1468,6 @@ body {
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;
-}
-
-.book-of-week-header {
-  text-align: center;
-  margin-bottom: 3rem;
-}
-
-.book-of-week-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #1e3a8a;
-  margin-bottom: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-}
-
-.crown-icon {
-  font-size: 2rem;
-  animation: sparkle 2s ease-in-out infinite alternate;
-}
-
-@keyframes sparkle {
-  0% { transform: scale(1) rotate(0deg); }
-  100% { transform: scale(1.1) rotate(10deg); }
-}
-
-.book-of-week-subtitle {
-  font-size: 1.1rem;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.book-of-week-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border-radius: 20px;
-  padding: 2.5rem;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
-  position: relative;
-  overflow: hidden;
-}
-
-.book-of-week-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #1e3a8a, #3b82f6, #06b6d4, #10b981);
-  background-size: 200% 100%;
-  animation: shimmer 3s ease-in-out infinite;
-}
-
-@keyframes shimmer {
-  0%, 100% { background-position: 200% 0; }
-  50% { background-position: -200% 0; }
-}
-
-.book-of-week-badge {
-  position: absolute;
-  top: 2rem;
-  right: 2rem;
-  background: linear-gradient(135deg, #dc2626, #ef4444);
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 25px;
-  font-weight: 600;
-  font-size: 0.9rem;
-  box-shadow: 0 8px 25px rgba(220, 38, 38, 0.3);
-  animation: pulse 2s infinite;
-}
-
-.book-of-week-content {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 3rem;
-  align-items: start;
 }
 
 .book-of-week-image {
@@ -1469,24 +1654,39 @@ body {
     padding: 2rem 1rem;
   }
 
-  .book-of-week-title {
-    font-size: 1.8rem;
+  .book-of-week-layout {
     flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .crown-icon {
-    font-size: 1.5rem;
-  }
-
-  .book-of-week-card {
-    padding: 1.5rem;
-  }
-
-  .book-of-week-content {
-    grid-template-columns: 1fr;
     gap: 2rem;
+    align-items: center;
+  }
+
+  .book-of-week-main {
+    flex-direction: column;
+    gap: 1.5rem;
     text-align: center;
+    width: 100%;
+  }
+
+  .book-of-week-badge-section {
+    order: -1;
+    min-width: auto;
+    height: auto;
+    margin-bottom: 1rem;
+  }
+
+  .book-text,
+  .week-text {
+    font-size: 2rem;
+  }
+
+  .book-of-week-badge::before {
+    width: 140px;
+    height: 60px;
+  }
+
+  .book-of-week-badge::after {
+    width: 100px;
+    height: 45px;
   }
 
   .book-of-week-image {
@@ -1509,11 +1709,27 @@ body {
     justify-content: center;
     width: 100%;
   }
+}
 
-  .book-of-week-badge {
-    position: static;
-    display: inline-block;
-    margin-bottom: 1rem;
+@media (max-width: 480px) {
+  .book-text,
+  .week-text {
+    font-size: 1.8rem;
+  }
+
+  .book-of-week-badge::before {
+    width: 120px;
+    height: 50px;
+  }
+
+  .book-of-week-badge::after {
+    width: 80px;
+    height: 35px;
+  }
+
+  .book-of-week-image {
+    width: 150px;
+    height: 210px;
   }
 }
 
@@ -1748,7 +1964,7 @@ body {
 
 .book-image {
   width: 100%;
-  height: 300px;
+  height: 140px;
   object-fit: cover;
   transition: transform 0.3s ease;
 }
@@ -1789,6 +2005,7 @@ body {
   margin-bottom: 1.25rem;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -2232,11 +2449,46 @@ body {
   text-align: center;
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  animation: statCardAppear 0.8s ease-out;
+}
+
+@keyframes statCardAppear {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .stat-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 10px 26px rgba(15, 23, 42, 0.10);
+}
+
+/* About page stat counting animation */
+.stat-card .stat-number {
+  animation: aboutNumberCount 0.6s ease-out;
+  transition: all 0.3s ease;
+}
+
+@keyframes aboutNumberCount {
+  0% {
+    transform: scale(1.3);
+    opacity: 0.6;
+    color: #1e3a8a;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    color: #1e3a8a;
+  }
 }
 
 .stat-icon { font-size: 1.6rem; margin-bottom: 0.35rem; }
@@ -2446,6 +2698,72 @@ body {
   max-width: 100%;
   margin: 0 auto;
   padding: 0 1rem;
+  overflow-x: hidden;
+}
+
+/* Prevent horizontal overflow globally */
+.App {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Image Slider overflow fix */
+.image-slider {
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  position: relative;
+  background: transparent;
+  min-height: 250px;
+  z-index: 1;
+}
+
+.image-slider .slick-slider {
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+.image-slider .slick-track {
+  display: flex !important;
+  align-items: stretch;
+}
+
+.image-slider .slick-list {
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+.image-slider .slick-slide {
+  overflow: hidden;
+  width: 100%;
+}
+
+.image-slider .slick-slide > div {
+  width: 100%;
+  overflow: hidden;
+}
+
+.image-slider .slick-slide img {
+  max-width: 100%;
+  width: 100%;
+  height: auto;
+  display: block;
+  min-height: 180px;
+}
+
+/* Categories strip overflow fix */
+.home-categories-header {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Ensure all flex containers respect viewport width */
+.flex-container {
+  max-width: 100%;
+  overflow: hidden;
 }
 
 /* Small mobile devices (480px and up) */
@@ -2779,19 +3097,34 @@ body {
 }
 
 /* Slider enhancements */
-.image-slider .slick-active img {
-  transform: scale(1.08) !important;
-}
-.image-slider .slider-item img {
-  will-change: transform;
+.image-slider .slick-dots {
+  bottom: 20px;
+  z-index: 100;
 }
 .image-slider .slick-dots li button:before {
   color: #ffffff;
-  opacity: 0.7;
+  opacity: 0.8;
+  font-size: 12px;
 }
 .image-slider .slick-dots li.slick-active button:before {
   color: #ffffff;
   opacity: 1;
+  font-size: 14px;
+}
+.image-slider .slick-arrow {
+  z-index: 100;
+  width: 50px;
+  height: 50px;
+}
+.image-slider .slick-arrow:before {
+  font-size: 30px;
+  color: rgba(255, 255, 255, 0.8);
+}
+.image-slider .slick-prev {
+  left: 25px;
+}
+.image-slider .slick-next {
+  right: 25px;
 }
 
 .navbar.at-top .logo-link img {
@@ -3178,6 +3511,136 @@ body {
   font-family: 'Amiri', serif;
 }
 
+/* Modern Package Styles (without prices) */
+.packages-modern {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border-radius: 20px;
+  margin: 2rem 0;
+  padding: 3rem 2rem;
+}
+
+.packages-modern h2 {
+  font-size: 2.5rem;
+  margin-bottom: 3rem;
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.package-card-modern {
+  background: white;
+  border-radius: 20px;
+  padding: 0;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  transition: all 0.3s ease;
+  overflow: hidden;
+  border: 1px solid rgba(30, 58, 138, 0.1);
+  position: relative;
+}
+
+.package-card-modern:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  border-color: #3b82f6;
+}
+
+.package-card-modern .package-header {
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  color: white;
+  padding: 2rem;
+  text-align: center;
+  position: relative;
+}
+
+.package-card-modern .package-header::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  border-top: 10px solid #3b82f6;
+}
+
+.package-card-modern h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+  font-family: 'Amiri', serif;
+}
+
+.package-card-modern .package-content {
+  padding: 2.5rem 2rem;
+  text-align: center;
+}
+
+.package-card-modern .package-description {
+  color: #64748b;
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+  font-weight: 500;
+}
+
+.package-card-modern .package-btn {
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  border: none;
+  padding: 12px 30px;
+  border-radius: 25px;
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+  box-shadow: 0 4px 15px rgba(30, 58, 138, 0.3);
+}
+
+.package-card-modern .package-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(30, 58, 138, 0.4);
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+}
+
+/* Responsive adjustments for modern packages */
+@media (max-width: 768px) {
+  .packages-modern {
+    margin: 1.5rem 0;
+    padding: 2rem 1rem;
+  }
+  
+  .packages-modern h2 {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+  }
+  
+  .package-card-modern .package-header {
+    padding: 1.5rem;
+  }
+  
+  .package-card-modern h3 {
+    font-size: 1.3rem;
+  }
+  
+  .package-card-modern .package-content {
+    padding: 2rem 1.5rem;
+  }
+  
+  .package-card-modern .package-description {
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .package-card-modern .package-btn {
+    padding: 10px 25px;
+    font-size: 0.9rem;
+  }
+}
+
 /* Book of the Week Admin Styles */
 .book-of-week-current {
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
@@ -3278,12 +3741,34 @@ body {
 
 @media (max-width: 768px) {
   .current-book-display {
-    flex-direction: column;
+    flex-direction: column !important;
     text-align: center;
+    gap: 1rem !important;
+    flex-wrap: nowrap !important;
   }
 
   .current-book-display .book-image {
     align-self: center;
+  }
+
+  .current-book-display .book-details {
+    min-width: auto !important;
+    overflow: visible !important;
+  }
+
+  .current-book-display .book-details h4 {
+    font-size: 1.2rem !important;
+    line-height: 1.4 !important;
+    text-align: center;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+  }
+
+  .current-book-display .book-details p {
+    text-align: center;
+    margin: 0.5rem 0 !important;
+    padding: 0.25rem 0 !important;
   }
 }
 
@@ -3749,5 +4234,264 @@ body {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* =================================
+   HOME PAGE RESPONSIVE IMPROVEMENTS
+   ================================= */
+
+/* Extra Small Mobile (320px - 480px) */
+@media (max-width: 480px) {
+  /* Image Slider Improvements */
+  .image-slider {
+    margin-bottom: 1rem;
+  }
+
+  .image-slider img { height: 180px; }
+
+  .slider-caption {
+    padding: 8px 12px !important;
+  }
+
+  .slider-caption h3 {
+    font-size: 1rem !important;
+    margin: 0 !important;
+  }
+
+  .slider-caption p {
+    font-size: 0.8rem !important;
+    margin: 4px 0 0 !important;
+  }
+
+  /* Home Categories Strip */
+  .home-categories-header h2 {
+    font-size: 1.3rem !important;
+    margin: 0 !important;
+  }
+
+  .home-categories-header p {
+    font-size: 0.85rem !important;
+    margin: 0.2rem 0 0 !important;
+  }
+
+  /* Category buttons for very small screens */
+  .btn.btn-secondary {
+    padding: 8px 14px !important;
+    font-size: 0.8rem !important;
+    min-height: 40px !important;
+    border-radius: 15px !important;
+  }
+
+  /* Packages Section */
+  .packages-section {
+    padding: 1rem 0 !important;
+  }
+
+  .packages-section h2 {
+    font-size: 1.3rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .package-card {
+    padding: 1rem !important;
+    margin-bottom: 1rem;
+  }
+
+  /* Book of the Week adjustments */
+  .book-of-week-container {
+    padding: 1rem 0.5rem !important;
+  }
+
+  .book-of-week-image {
+    width: 150px !important;
+    height: 210px !important;
+  }
+
+  .book-title a {
+    font-size: 1.2rem !important;
+    line-height: 1.3;
+  }
+
+  /* Chosen Books Section */
+  .chosen-books-section {
+    padding: 1rem 0 !important;
+  }
+
+  .chosen-books-section h2 {
+    font-size: 1.3rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .books-grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+    gap: 0.8rem !important;
+    padding: 0.8rem 0 !important;
+  }
+
+  .book-card {
+    padding: 0.8rem !important;
+  }
+
+  .book-card img {
+    height: 140px !important;
+  }
+
+  .book-card h3 {
+    font-size: 1rem !important;
+    line-height: 1.2;
+  }
+}
+
+/* Small Mobile (480px - 768px) */
+@media (min-width: 481px) and (max-width: 767px) {
+  /* Image Slider */
+  .image-slider img { height: 200px; }
+
+  .slider-caption {
+    padding: 12px 16px !important;
+  }
+
+  .slider-caption h3 {
+    font-size: 1.3rem !important;
+  }
+
+  /* Categories */
+  .home-categories-header h2 {
+    font-size: 1.6rem !important;
+  }
+
+  .btn.btn-secondary {
+    padding: 10px 16px !important;
+    font-size: 0.9rem !important;
+  }
+
+  /* Book of the Week */
+  .book-of-week-image {
+    width: 180px !important;
+    height: 250px !important;
+  }
+
+  /* Books Grid */
+  .books-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+    gap: 1rem !important;
+  }
+}
+
+/* Tablet Portrait (768px - 1024px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Image Slider */
+  .image-slider img { height: 230px; }
+
+  /* Book of the Week - Better tablet layout */
+  .book-of-week-content {
+    gap: 2rem !important;
+  }
+
+  .book-of-week-image {
+    width: 220px !important;
+    height: 310px !important;
+  }
+
+  /* Package Grid - 2 columns on tablet */
+  .package-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1.5rem !important;
+  }
+
+  /* Books Grid - 3 columns on tablet */
+  .books-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 1.5rem !important;
+  }
+}
+
+/* Desktop Small (1024px - 1200px) */
+@media (min-width: 1024px) and (max-width: 1199px) {
+  /* Packages - 3 columns */
+  .package-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Books - 4 columns */
+  .books-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+
+  /* Book of the Week */
+  .book-of-week-image {
+    width: 240px !important;
+    height: 340px !important;
+  }
+}
+
+/* Desktop Large (1200px+) */
+@media (min-width: 1200px) {
+  /* Maximum container width for very large screens */
+  .container {
+    max-width: 1400px;
+  }
+
+  /* Books Grid - 5 columns on large screens */
+  .books-grid {
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 2rem !important;
+  }
+
+  /* Package Grid - optimal 3-4 columns */
+  .package-grid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
+  }
+
+  /* Book of the Week - full size */
+  .book-of-week-image {
+    width: 260px !important;
+    height: 370px !important;
+  }
+}
+
+/* Landscape Phone Orientation */
+@media (max-height: 500px) and (orientation: landscape) {
+  .image-slider img { height: 180px; }
+
+  .book-of-week-container {
+    padding: 1rem !important;
+  }
+
+  .book-of-week-content {
+    grid-template-columns: auto 1fr !important;
+    gap: 1.5rem !important;
+  }
+
+  .book-of-week-image {
+    width: 150px !important;
+    height: 200px !important;
+  }
+}
+
+/* High DPI / Retina Display Optimizations */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .book-card img,
+  .book-of-week-image img,
+  .image-slider img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* Print Styles for Home Page */
+@media print {
+  .image-slider,
+  .book-of-week-badge,
+  .btn {
+    display: none !important;
+  }
+
+  .book-of-week-container,
+  .packages-section,
+  .chosen-books-section {
+    page-break-inside: avoid;
+    margin-bottom: 2rem;
+  }
 }
 

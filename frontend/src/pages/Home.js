@@ -7,6 +7,7 @@ import Packages from '../components/Packages';
 import BookOfTheWeek from '../components/BookOfTheWeek';
 import ChosenBooks from '../components/ChosenBooks';
 import DynamicCategoryWidget from '../components/DynamicCategoryWidget';
+import '../styles/home-categories.css';
 
 const Home = () => {
   const [dynamicCategories, setDynamicCategories] = useState([]);
@@ -110,37 +111,43 @@ const Home = () => {
       <ImageSlider />
 
       <div className="container">
-        {/* Categories strip */}
+        {/* Modern Categories Section */}
         {categories.length > 0 && (
-          <div style={{ margin: '1.5rem 0', padding: '0 1rem' }}>
-            <div className="home-categories-header" style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
-              <h2 style={{ margin: 0, color: '#1e3a8a', fontFamily: 'Amiri, serif', fontWeight: 700 }}>تصفح حسب التصنيفات</h2>
-              <p style={{ margin: '0.25rem 0 0', color: '#64748b', fontWeight: 500 }}>اختر المجال الذي يناسب اهتماماتك</p>
-            </div>
-            <div style={{ 
-              display: 'flex', 
-              flexWrap: 'wrap', 
-              gap: '0.5rem', 
-              justifyContent: 'center',
-              overflowX: 'auto',
-              paddingBottom: '0.5rem',
-              WebkitOverflowScrolling: 'touch'
+          <div className="home-categories-strip">
+            <div className="home-categories-header" style={{
+              textAlign: 'center',
+              marginBottom: '2rem',
+              position: 'relative',
+              zIndex: 1
             }}>
+              <h2 style={{
+                margin: 0,
+                fontFamily: 'Amiri, serif',
+                fontWeight: 700,
+                fontSize: window.innerWidth <= 480 ? '1.5rem' :
+                          window.innerWidth <= 768 ? '1.8rem' : '2.2rem',
+                marginBottom: '0.5rem'
+              }}>
+                تصفح حسب التصنيفات
+              </h2>
+              <p style={{
+                margin: '0.5rem 0 0',
+                color: '#64748b',
+                fontWeight: 500,
+                fontSize: window.innerWidth <= 480 ? '0.9rem' : '1.1rem',
+                maxWidth: '600px',
+                margin: '0 auto'
+              }}>
+                اكتشف مجموعة متنوعة من الكتب في كافة المجالات واختر ما يناسب اهتماماتك
+              </p>
+            </div>
+            <div className="home-categories-row">
               {categories.map((cat) => (
                 <Link
                   key={cat}
                   to={`/bookstore?category=${encodeURIComponent(cat)}`}
-                  className="btn btn-secondary"
-                  style={{ 
-                    padding: '10px 18px',
-                    fontSize: '0.9rem',
-                    minHeight: '44px',
-                    whiteSpace: 'nowrap',
-                    borderRadius: '20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
+                  className="category-chip"
+                  style={{ textDecoration: 'none' }}
                 >
                   {cat}
                 </Link>
@@ -148,7 +155,7 @@ const Home = () => {
             </div>
           </div>
         )}
-        <Packages />
+        <Packages hidePrices={true} />
         <BookOfTheWeek />
         {loading ? (
           <div className="loading">

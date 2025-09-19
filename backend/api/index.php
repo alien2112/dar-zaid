@@ -3,21 +3,8 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// CORS Headers - Allow all origins for development
-// Dynamic CORS with credentials support
-$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
-header("Access-Control-Allow-Origin: $origin");
-header("Vary: Origin");
-header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
-header("Access-Control-Allow-Credentials: true");
-header("Content-Type: application/json; charset=UTF-8");
-
-// Handle preflight OPTIONS request
-if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
-    http_response_code(200);
-    exit(0);
-}
+// Include centralized CORS configuration
+require_once __DIR__ . '/../config/cors.php';
 
 include_once __DIR__ . '/../config/database.php';
 
@@ -107,6 +94,15 @@ switch($endpoint) {
         break;
     case 'payment_methods':
         include 'payment_methods.php';
+        break;
+    case 'custom_filters':
+        include 'custom_filters.php';
+        break;
+    case 'filter_options':
+        include 'filter_options.php';
+        break;
+    case 'formspree_proxy':
+        include 'formspree_proxy.php';
         break;
     default:
         http_response_code(404);

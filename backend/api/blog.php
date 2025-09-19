@@ -1,29 +1,38 @@
 <?php
+// Include centralized CORS configuration
+require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 
-header('Content-Type: application/json');
-$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
-header('Access-Control-Allow-Origin: ' . $origin);
-header('Vary: Origin');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Credentials: true');
-
 $method = $_SERVER['REQUEST_METHOD'];
-if ($method === 'OPTIONS') { http_response_code(200); exit(); }
 
 if ($method == 'GET') {
     try {
-        // Check if admin is requesting all posts (including drafts)
-        $isAdmin = isset($_GET['admin']) && $_GET['admin'] === 'true';
-        $whereClause = $isAdmin ? '' : "WHERE status = 'published'";
-
-        $query = "SELECT * FROM blog_posts $whereClause ORDER BY published_date DESC";
-        $stmt = $db->prepare($query);
-        $stmt->execute();
-
-        $posts = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $request_uri = $_SERVER['REQUEST_URI'];
+        $path_parts = explode('/', trim($request_uri, '/'));
+        $post_id = end($path_parts);
+        
+        // Check if requesting specific post by ID
+        if (is_numeric($post_id) && $post_id > 0) {
+            // Get individual blog post
+            $isAdmin = isset($_GET['admin']) && $_GET['admin'] === 'true';
+            $whereClause = $isAdmin ? "WHERE id = :id" : "WHERE id = :id AND status = 'published'";
+            
+            $query = "SELECT * FROM blog_posts $whereClause";
+            $stmt = $db->prepare($query);
+            $stmt->execute(['id' => (int)$post_id]);
+            
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$row) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Blog post not found'], JSON_UNESCAPED_UNICODE);
+                exit();
+            }
+            
+            // Increment view count
+            $updateViews = $db->prepare('UPDATE blog_posts SET views = views + 1 WHERE id = :id');
+            $updateViews->execute(['id' => (int)$post_id]);
+            
             $post = [
                 'id' => (int)$row['id'],
                 'title' => $row['title'],
@@ -32,15 +41,42 @@ if ($method == 'GET') {
                 'author' => $row['author'],
                 'date' => $row['published_date'],
                 'image' => $row['image_url'] ?? '/images/blog-placeholder.jpg',
-                'views' => (int)($row['views'] ?? 0),
+                'views' => (int)($row['views'] ?? 0) + 1,
                 'status' => $row['status'],
                 'createdAt' => $row['created_at'],
                 'updatedAt' => $row['updated_at']
             ];
-            $posts[] = $post;
-        }
+            
+            echo json_encode(['post' => $post], JSON_UNESCAPED_UNICODE);
+        } else {
+            // Get all blog posts
+            $isAdmin = isset($_GET['admin']) && $_GET['admin'] === 'true';
+            $whereClause = $isAdmin ? '' : "WHERE status = 'published'";
 
-        echo json_encode(['posts' => $posts], JSON_UNESCAPED_UNICODE);
+            $query = "SELECT * FROM blog_posts $whereClause ORDER BY published_date DESC";
+            $stmt = $db->prepare($query);
+            $stmt->execute();
+
+            $posts = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $post = [
+                    'id' => (int)$row['id'],
+                    'title' => $row['title'],
+                    'content' => $row['content'],
+                    'excerpt' => $row['excerpt'] ?? substr(strip_tags($row['content']), 0, 200) . '...',
+                    'author' => $row['author'],
+                    'date' => $row['published_date'],
+                    'image' => $row['image_url'] ?? '/images/blog-placeholder.jpg',
+                    'views' => (int)($row['views'] ?? 0),
+                    'status' => $row['status'],
+                    'createdAt' => $row['created_at'],
+                    'updatedAt' => $row['updated_at']
+                ];
+                $posts[] = $post;
+            }
+
+            echo json_encode(['posts' => $posts], JSON_UNESCAPED_UNICODE);
+        }
     } catch(PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Database error: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);

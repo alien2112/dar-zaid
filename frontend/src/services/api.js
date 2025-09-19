@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Prefer explicit backend URL in dev to avoid proxy issues
+// Use proxy in development, direct URL in production
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
 const api = axios.create({
@@ -31,6 +31,7 @@ export const apiService = {
   
   // Get blog posts
   getBlogPosts: (admin = false) => api.get(`/blog${admin ? '?admin=true' : ''}`),
+  getBlogPost: (postId, admin = false) => api.get(`/blog/${postId}${admin ? '?admin=true' : ''}`),
   addBlogPost: (postData) => api.post('/blog', postData),
   updateBlogPost: (postId, postData) => api.put(`/blog/${postId}`, postData),
   deleteBlogPost: (postId) => api.delete(`/blog/${postId}`),
@@ -55,11 +56,6 @@ export const apiService = {
   getReviews: (bookId) => api.get(`/reviews`, { params: { book_id: bookId } }),
   addReview: (payload) => api.post(`/reviews`, payload),
 
-  // Slider images (admin helpers)
-  getSliderImages: (admin = false) => api.get(`/slider${admin ? '?admin=1' : ''}`),
-  addSliderImage: (payload) => api.post('/slider', payload),
-  updateSliderImage: (id, payload) => api.put(`/slider/${id}`, payload),
-  deleteSliderImage: (id) => api.delete(`/slider/${id}`),
 
   // Team photos (admin helpers)
   getTeamPhotos: (admin = false) => api.get(`/team_photos${admin ? '?admin=true' : ''}`),
@@ -120,7 +116,10 @@ export const apiService = {
   getReports: (type) => api.get(`/reports?type=${type}`),
 
   // Slider Images
-  getSliderImages: (admin = false) => api.get(`/slider${admin ? '?admin=true' : ''}`),
+  getSliderImages: (admin = false) => {
+    const query = admin ? '?admin=true' : '';
+    return api.get(`/slider${query}`);
+  },
   addSliderImage: (sliderData) => api.post('/slider', sliderData),
   updateSliderImage: (sliderId, sliderData) => api.put(`/slider/${sliderId}`, sliderData),
   deleteSliderImage: (sliderId) => api.delete(`/slider/${sliderId}`),

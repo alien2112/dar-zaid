@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { apiService } from '../services/api';
 
 const Blog = () => {
@@ -95,17 +96,21 @@ const Blog = () => {
                 {post.content}
               </p>
               
-              <button 
+              <Link 
+                to={`/blog/${post.id}`}
                 className="btn btn-primary"
                 style={{
                   minHeight: '44px',
                   padding: '12px 24px',
                   fontSize: '1rem',
-                  width: '100%'
+                  width: '100%',
+                  textDecoration: 'none',
+                  display: 'block',
+                  textAlign: 'center'
                 }}
               >
                 قراءة المزيد
-              </button>
+              </Link>
             </article>
           ))}
         </div>

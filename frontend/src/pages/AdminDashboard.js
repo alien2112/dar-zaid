@@ -433,6 +433,13 @@ const AdminDashboard = () => {
               }}>
                 إدارة الفلاتر
               </Link>
+              <Link to="/admin/categories" className="btn btn-secondary" style={{ 
+                minHeight: '44px',
+                padding: '12px 16px',
+                fontSize: '0.9rem'
+              }}>
+                إدارة التصنيفات
+              </Link>
             </div>
             <button
               className="btn btn-primary"
@@ -475,7 +482,7 @@ const AdminDashboard = () => {
             <h2 style={{ marginBottom: '1rem' }}>إدارة الكتب</h2>
             <div>
               <button className="btn btn-secondary" style={{ marginLeft: '0.5rem' }} onClick={() => setShowImport(v => !v)}>
-                {showImport ? 'إغلاق الاستيراد' : 'استيراد (CSV/XLSX)'}
+                {showImport ? 'إغلاق الاستيراد' : 'استيراد (XLSX)'}
               </button>
               <button
                 className="btn btn-primary"

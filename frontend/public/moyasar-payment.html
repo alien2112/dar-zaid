@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دفع آمن - دار زيد</title>
+    <script src="https://cdn.moyasar.com/mpf/1.14.0/moyasar.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .payment-container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .payment-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: right;
+        }
+
+        .payment-info h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+        }
+
+        .amount {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2ecc71;
+            margin: 10px 0;
+        }
+
+        .loading {
+            display: none;
+            color: #666;
+            font-style: italic;
+        }
+
+        .error {
+            color: #e74c3c;
+            background: #ffeaea;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: none;
+        }
+
+        .success {
+            color: #27ae60;
+            background: #eafaf1;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: none;
+        }
+
+        /* Custom styles for Moyasar form */
+        .mysr-form {
+            margin-top: 20px;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="payment-container">
+        <div class="logo">🏪 دار زيد للنشر والتوزيع</div>
+
+        <div class="payment-info">
+            <h3>تأكيد الدفع</h3>
+            <div>رقم الطلب: <span id="order-id">-</span></div>
+            <div class="amount" id="amount">0.00 ريال</div>
+        </div>
+
+        <div class="loading" id="loading">جاري تحضير نموذج الدفع...</div>
+        <div class="error" id="error-message"></div>
+        <div class="success" id="success-message"></div>
+
+        <!-- Moyasar payment form will be inserted here -->
+        <div id="moyasar-form"></div>
+
+        <a href="/" class="back-link">← العودة للموقع</a>
+    </div>
+
+    <script>
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const transactionId = urlParams.get('transaction') || urlParams.get('t');
+        const amount = urlParams.get('amount') || urlParams.get('a');
+        const orderId = urlParams.get('order') || urlParams.get('o');
+        const method = urlParams.get('method') || 'visa';
+
+        // Update display
+        if (orderId) {
+            document.getElementById('order-id').textContent = orderId;
+        }
+        if (amount) {
+            document.getElementById('amount').textContent = parseFloat(amount).toFixed(2) + ' ريال';
+        }
+
+        // Moyasar configuration
+        const moyasarConfig = {
+            element: '#moyasar-form',
+            amount: parseInt((parseFloat(amount || 100) * 100)), // Convert to halalas
+            currency: 'SAR',
+            description: `دفع طلب رقم ${orderId || transactionId}`,
+            publishable_api_key: 'pk_live_FnXepyRM6tuTa2pKFhAotcNkb15NUvgoPX1G15nr',
+            callback_url: `${window.location.origin}/api/payments/callback/moyasar`,
+            methods: ['creditcard'],
+            metadata: {
+                transaction_id: transactionId,
+                order_id: orderId,
+                source: 'website'
+            },
+            on_initiated: function(payment) {
+                console.log('Payment initiated:', payment);
+                document.getElementById('loading').style.display = 'block';
+            },
+            on_completed: function(payment) {
+                console.log('Payment completed:', payment);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('success-message').style.display = 'block';
+                document.getElementById('success-message').textContent = 'تم الدفع بنجاح! جاري تحويلك...';
+
+                // Redirect to success page after 2 seconds
+                setTimeout(() => {
+                    window.location.href = `/checkout?success=1&payment=${payment.id}&transaction=${transactionId}`;
+                }, 2000);
+            },
+            on_failed: function(payment) {
+                console.log('Payment failed:', payment);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error-message').style.display = 'block';
+                document.getElementById('error-message').textContent = 'فشل في عملية الدفع. يرجى المحاولة مرة أخرى.';
+            }
+        };
+
+        // Handle different payment methods
+        if (method === 'stc_pay') {
+            moyasarConfig.methods = ['stcpay'];
+        } else if (method === 'apple_pay') {
+            moyasarConfig.methods = ['applepay'];
+        } else if (method === 'mada') {
+            moyasarConfig.methods = ['creditcard'];
+            moyasarConfig.supported_networks = ['mada'];
+        } else if (method === 'visa') {
+            moyasarConfig.methods = ['creditcard'];
+            moyasarConfig.supported_networks = ['visa'];
+        } else if (method === 'mastercard') {
+            moyasarConfig.methods = ['creditcard'];
+            moyasarConfig.supported_networks = ['mastercard'];
+        } else if (method === 'amex') {
+            moyasarConfig.methods = ['creditcard'];
+            moyasarConfig.supported_networks = ['amex'];
+        } else {
+            // Default to all credit card types
+            moyasarConfig.methods = ['creditcard'];
+        }
+
+        // Initialize Moyasar form
+        if (transactionId && amount) {
+            try {
+                Moyasar.init(moyasarConfig);
+                document.getElementById('loading').style.display = 'none';
+            } catch (error) {
+                console.error('Moyasar initialization error:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error-message').style.display = 'block';
+                document.getElementById('error-message').textContent = 'خطأ في تحضير نموذج الدفع. يرجى المحاولة لاحقاً.';
+            }
+        } else {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error-message').style.display = 'block';
+            document.getElementById('error-message').textContent = 'معلومات الدفع غير مكتملة. يرجى العودة والمحاولة مرة أخرى.';
+        }
+    </script>
+</body>
+</html>

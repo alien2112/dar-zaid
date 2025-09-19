@@ -1,21 +1,10 @@
 <?php
+// Include centralized CORS configuration
+require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../services/sendgrid_service.php';
-
-// CORS headers
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: ' . (isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*'));
-header('Vary: Origin');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Credentials: true');
+require_once __DIR__ . '/../services/universal_email_service.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
-
-if ($method === 'OPTIONS') { 
-    http_response_code(200); 
-    exit(); 
-}
 
 if ($method == 'POST') {
     $data = json_decode(file_get_contents("php://input"));
@@ -51,8 +40,8 @@ if ($method == 'POST') {
             if ($result) {
                 // Send email notifications
                 try {
-                    $sendGridService = new SendGridService();
-                    
+                    $emailService = new UniversalEmailService();
+
                     $contactData = [
                         'name' => $data->name,
                         'email' => $data->email,
@@ -60,12 +49,12 @@ if ($method == 'POST') {
                         'subject' => $data->subject ?? '',
                         'message' => $data->message
                     ];
-                    
+
                     // Send notification to admin
-                    $sendGridService->sendContactNotification($contactData);
-                    
-                    // Send confirmation to customer
-                    $sendGridService->sendContactConfirmation($contactData);
+                    $emailService->sendContactNotification($contactData);
+
+                    // Send confirmation to customer (with rate limiting)
+                    $emailService->sendContactConfirmation($contactData);
                     
                 } catch (Exception $e) {
                     // Log error but don't fail the contact form submission

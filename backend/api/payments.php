@@ -1,19 +1,10 @@
 <?php
+// Include centralized CORS configuration
+require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
-
-header('Content-Type: application/json');
-$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
-header('Access-Control-Allow-Origin: ' . $origin);
-header('Vary: Origin');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Credentials: true');
+require_once __DIR__ . '/../services/moyasar_service.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
-if ($method === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
 
 $database = new Database();
 $db = $database->getConnection();
@@ -107,6 +98,8 @@ switch ($method) {
             handlePaymentProcessing($db);
         } elseif ($endpoint === 'callback') {
             handlePaymentCallback($db);
+        } elseif ($endpoint === 'moyasar') {
+            handleMoyasarCallback($db);
         } elseif ($endpoint === 'refund') {
             handlePaymentRefund($db);
         } else {
@@ -150,19 +143,31 @@ function handlePaymentInitialization($db) {
         $payment_method = $data['payment_method'];
         $amount = (float)$data['amount'];
         $currency = $data['currency'] ?? 'SAR';
-        $order_id = $data['order_id'] ?? 'order_' . time();
+        $order_id = $data['order_id'] ?? null;
         $transaction_id = 'txn_' . time() . '_' . uniqid();
 
-        // Create order with transaction and stock validation
-        $order_result = createOrderWithTransaction($db, $data);
-        if (isset($order_result['existing']) && $order_result['existing']) {
-            // Return existing order info for idempotent request
-            echo json_encode([
-                'status' => 'existing',
-                'order_id' => $order_result['order_id'],
-                'message' => 'Order already exists for this idempotency key'
-            ], JSON_UNESCAPED_UNICODE);
-            return;
+        // If order_id is provided, validate that the order exists
+        if ($order_id) {
+            $orderCheckStmt = $db->prepare('SELECT order_id, total_amount FROM orders WHERE order_id = :order_id');
+            $orderCheckStmt->execute(['order_id' => $order_id]);
+            $existingOrder = $orderCheckStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$existingOrder) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Order not found: ' . $order_id], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            // Validate amount matches order total
+            $orderTotal = (float)$existingOrder['total_amount'];
+            if (abs($orderTotal - $amount) > 0.01) {
+                error_log("Amount mismatch for order $order_id: expected $orderTotal, got $amount");
+                // Allow the payment to proceed with the order's actual total
+                $amount = $orderTotal;
+            }
+        } else {
+            // If no order_id provided, this is a standalone payment (legacy support)
+            $order_id = 'payment_' . time();
         }
 
         // Create payment record
@@ -308,205 +313,74 @@ function createOrder($db, $data) {
 }
 
 function routeToPaymentProvider($payment_method, $transaction_id, $data) {
+    // All payment methods now route through Moyasar
     switch ($payment_method) {
-        case 'stc_pay':
-            return initializeSTCPay($transaction_id, $data);
-
-        case 'tamara':
-            return initializeTamara($transaction_id, $data);
-
-        case 'tabby':
-            return initializeTabby($transaction_id, $data);
-
-        case 'google_pay':
-            return initializeGooglePay($transaction_id, $data);
-
-        case 'apple_pay':
-            return initializeApplePay($transaction_id, $data);
-
-        case 'bank_transfer':
-            return initializeBankTransfer($transaction_id, $data);
-
+        // Moyasar-supported payment methods
         case 'visa':
         case 'mastercard':
         case 'mada':
         case 'amex':
         case 'unionpay':
-            return initializeCardPayment($payment_method, $transaction_id, $data);
-
-        case 'paypal':
-            return initializePayPal($transaction_id, $data);
-
-        case 'sadad':
-            return initializeSadad($transaction_id, $data);
-
-        case 'fawry':
-            return initializeFawry($transaction_id, $data);
-
-        case 'urpay':
-            return initializeUrPay($transaction_id, $data);
-
-        case 'benefit':
-            return initializeBenefit($transaction_id, $data);
+        case 'stc_pay':
+        case 'apple_pay':
+            return initializeMoyasarPayment($payment_method, $transaction_id, $data);
 
         default:
             throw new Exception('Unsupported payment method: ' . $payment_method);
     }
 }
 
-function initializeSTCPay($transaction_id, $data) {
-    // TODO: Integrate with STC Pay API
-    // This is a placeholder - replace with actual STC Pay integration
-    return [
-        'status' => 'redirect',
-        'redirect_url' => 'https://stcpay.com.sa/payment?ref=' . $transaction_id,
-        'transaction_id' => $transaction_id,
-        'provider' => 'stc_pay',
-        'message' => 'Redirecting to STC Pay'
-    ];
+function initializeMoyasarPayment($payment_method, $transaction_id, $data) {
+    try {
+        $moyasarService = new MoyasarService();
+
+        // Prepare payment data for Moyasar
+        $paymentData = [
+            'amount' => $data['amount'],
+            'currency' => $data['currency'] ?? 'SAR',
+            'description' => ucfirst(str_replace('_', ' ', $payment_method)) . ' payment for order ' . ($data['order_id'] ?? 'N/A'),
+            'transaction_id' => $transaction_id,
+            'order_id' => $data['order_id'] ?? '',
+            'payment_method' => $payment_method,
+            'customer_info' => $data['customer_info'] ?? []
+        ];
+
+        // Create payment with Moyasar
+        $moyasarResponse = $moyasarService->createPayment($paymentData);
+
+        return [
+            'status' => 'redirect',
+            'redirect_url' => '/moyasar-payment.html?transaction=' . $transaction_id .
+                             '&amount=' . $data['amount'] .
+                             '&order=' . ($data['order_id'] ?? '') .
+                             '&method=' . $payment_method,
+            'transaction_id' => $transaction_id,
+            'provider_transaction_id' => $moyasarResponse['payment_id'],
+            'provider' => 'moyasar',
+            'payment_method' => $payment_method,
+            'message' => 'Redirecting to ' . ucfirst(str_replace('_', ' ', $payment_method)) . ' payment via Moyasar'
+        ];
+
+    } catch (Exception $e) {
+        error_log('Moyasar payment initialization failed for ' . $payment_method . ': ' . $e->getMessage());
+
+        // Fallback to hosted payment page
+        return [
+            'status' => 'redirect',
+            'redirect_url' => '/moyasar-payment.html?transaction=' . $transaction_id .
+                             '&amount=' . $data['amount'] .
+                             '&order=' . ($data['order_id'] ?? '') .
+                             '&method=' . $payment_method .
+                             '&fallback=1',
+            'transaction_id' => $transaction_id,
+            'provider' => 'moyasar_fallback',
+            'payment_method' => $payment_method,
+            'error' => $e->getMessage(),
+            'message' => 'Redirecting to secure payment form'
+        ];
+    }
 }
 
-function initializeTamara($transaction_id, $data) {
-    // TODO: Integrate with Tamara API
-    // This is a placeholder - replace with actual Tamara integration
-    return [
-        'status' => 'redirect',
-        'redirect_url' => 'https://api.tamara.co/checkout?ref=' . $transaction_id,
-        'transaction_id' => $transaction_id,
-        'provider' => 'tamara',
-        'installments' => $data['installments'] ?? 3,
-        'message' => 'Redirecting to Tamara'
-    ];
-}
-
-function initializeTabby($transaction_id, $data) {
-    // TODO: Integrate with Tabby API
-    // This is a placeholder - replace with actual Tabby integration
-    return [
-        'status' => 'redirect',
-        'redirect_url' => 'https://api.tabby.ai/checkout?ref=' . $transaction_id,
-        'transaction_id' => $transaction_id,
-        'provider' => 'tabby',
-        'installments' => 4,
-        'message' => 'Redirecting to Tabby'
-    ];
-}
-
-function initializeGooglePay($transaction_id, $data) {
-    // TODO: Integrate with Google Pay API
-    // This is a placeholder - replace with actual Google Pay integration
-    return [
-        'status' => 'redirect',
-        'redirect_url' => '/payment/google-pay?transaction=' . $transaction_id,
-        'transaction_id' => $transaction_id,
-        'provider' => 'google_pay',
-        'message' => 'Initializing Google Pay'
-    ];
-}
-
-function initializeApplePay($transaction_id, $data) {
-    // TODO: Integrate with Apple Pay API
-    // This is a placeholder - replace with actual Apple Pay integration
-    return [
-        'status' => 'redirect',
-        'redirect_url' => '/payment/apple-pay?transaction=' . $transaction_id,
-        'transaction_id' => $transaction_id,
-        'provider' => 'apple_pay',
-        'message' => 'Initializing Apple Pay'
-    ];
-}
-
-function initializeBankTransfer($transaction_id, $data) {
-    // For bank transfer, we provide bank details immediately
-    return [
-        'status' => 'pending',
-        'transaction_id' => $transaction_id,
-        'provider' => 'bank_transfer',
-        'bank_details' => [
-            'bank_name' => 'البنك الأهلي السعودي',
-            'account_number' => '1234567890',
-            'iban' => 'SA0510000012345678901',
-            'account_holder' => 'دار زيد للنشر والتوزيع',
-            'swift_code' => 'NCBKSARIXX'
-        ],
-        'reference_number' => $transaction_id,
-        'amount' => $data['amount'],
-        'currency' => $data['currency'] ?? 'SAR',
-        'message' => 'Please transfer the amount using the provided bank details'
-    ];
-}
-
-function initializeCardPayment($payment_method, $transaction_id, $data) {
-    // TODO: Integrate with card payment processor (e.g., Moyasar, PayTabs, HyperPay)
-    // This is a placeholder - replace with actual card payment integration
-    return [
-        'status' => 'redirect',
-        'redirect_url' => '/payment/card-form?method=' . $payment_method . '&transaction=' . $transaction_id,
-        'transaction_id' => $transaction_id,
-        'provider' => $payment_method,
-        'message' => 'Redirecting to secure card payment form'
-    ];
-}
-
-function initializePayPal($transaction_id, $data) {
-    // TODO: Integrate with PayPal API
-    // This is a placeholder - replace with actual PayPal integration
-    return [
-        'status' => 'redirect',
-        'redirect_url' => 'https://www.paypal.com/checkout?ref=' . $transaction_id,
-        'transaction_id' => $transaction_id,
-        'provider' => 'paypal',
-        'message' => 'Redirecting to PayPal'
-    ];
-}
-
-function initializeSadad($transaction_id, $data) {
-    // TODO: Integrate with Sadad API
-    // This is a placeholder - replace with actual Sadad integration
-    return [
-        'status' => 'redirect',
-        'redirect_url' => 'https://sadad.com.sa/payment?ref=' . $transaction_id,
-        'transaction_id' => $transaction_id,
-        'provider' => 'sadad',
-        'message' => 'Redirecting to Sadad'
-    ];
-}
-
-function initializeFawry($transaction_id, $data) {
-    // TODO: Integrate with Fawry API
-    // This is a placeholder - replace with actual Fawry integration
-    return [
-        'status' => 'redirect',
-        'redirect_url' => 'https://fawry.com/payment?ref=' . $transaction_id,
-        'transaction_id' => $transaction_id,
-        'provider' => 'fawry',
-        'message' => 'Redirecting to Fawry'
-    ];
-}
-
-function initializeUrPay($transaction_id, $data) {
-    // TODO: Integrate with UrPay API
-    // This is a placeholder - replace with actual UrPay integration
-    return [
-        'status' => 'redirect',
-        'redirect_url' => 'https://urpay.com.sa/payment?ref=' . $transaction_id,
-        'transaction_id' => $transaction_id,
-        'provider' => 'urpay',
-        'message' => 'Redirecting to UrPay'
-    ];
-}
-
-function initializeBenefit($transaction_id, $data) {
-    // TODO: Integrate with Benefit API
-    // This is a placeholder - replace with actual Benefit integration
-    return [
-        'status' => 'redirect',
-        'redirect_url' => 'https://benefit.com.sa/payment?ref=' . $transaction_id,
-        'transaction_id' => $transaction_id,
-        'provider' => 'benefit',
-        'message' => 'Redirecting to Benefit'
-    ];
-}
 
 function handlePaymentProcessing($db) {
     // This would handle the actual payment processing
@@ -769,6 +643,92 @@ function handlePaymentRefund($db) {
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Refund error: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+    }
+}
+
+function handleMoyasarCallback($db) {
+    try {
+        $raw_payload = file_get_contents('php://input');
+        $webhookData = json_decode($raw_payload, true);
+        $headers = getallheaders();
+
+        // Verify webhook signature
+        $moyasarService = new MoyasarService();
+        $signature = $headers['X-Moyasar-Signature'] ?? $headers['x-moyasar-signature'] ?? '';
+
+        if (!$moyasarService->verifyWebhookSignature($raw_payload, $signature)) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Invalid webhook signature'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        // Process webhook data
+        $processedData = $moyasarService->processWebhook($webhookData);
+
+        if (!$processedData['transaction_id']) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Transaction ID not found in webhook'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        // Start transaction for atomic payment update
+        $db->beginTransaction();
+
+        try {
+            // Check for existing payment
+            $checkStmt = $db->prepare(
+                'SELECT id, status FROM payments WHERE transaction_id = :transaction_id FOR UPDATE'
+            );
+            $checkStmt->execute(['transaction_id' => $processedData['transaction_id']]);
+            $payment = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$payment) {
+                $db->rollback();
+                http_response_code(404);
+                echo json_encode(['error' => 'Payment not found'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            // Prevent duplicate processing
+            if ($payment['status'] === 'completed' && $processedData['status'] === 'completed') {
+                $db->commit();
+                echo json_encode(['status' => 'success', 'message' => 'Already processed'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            // Update payment with Moyasar data
+            $stmt = $db->prepare(
+                'UPDATE payments SET status = :status, provider_transaction_id = :provider_id,
+                                   provider_response = :provider_response, webhook_verified = TRUE,
+                                   updated_at = CURRENT_TIMESTAMP
+                 WHERE transaction_id = :transaction_id'
+            );
+
+            $stmt->execute([
+                'status' => $processedData['status'],
+                'provider_id' => $processedData['provider_transaction_id'],
+                'provider_response' => json_encode($processedData['provider_response']),
+                'transaction_id' => $processedData['transaction_id']
+            ]);
+
+            // Handle payment status changes
+            if ($processedData['status'] === 'completed') {
+                handlePaymentSuccess($db, $processedData['transaction_id']);
+            } elseif ($processedData['status'] === 'failed' || $processedData['status'] === 'cancelled') {
+                handlePaymentFailure($db, $processedData['transaction_id']);
+            }
+
+            $db->commit();
+            echo json_encode(['status' => 'success', 'message' => 'Moyasar webhook processed'], JSON_UNESCAPED_UNICODE);
+
+        } catch (Exception $e) {
+            $db->rollback();
+            throw $e;
+        }
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Moyasar webhook error: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 ?>

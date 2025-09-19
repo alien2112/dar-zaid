@@ -6,6 +6,7 @@ import { apiService } from '../services/api';
 import ImageUpload from '../components/ImageUpload';
 import ImageGallery from '../components/ImageGallery';
 import CustomLoader from '../components/CustomLoader';
+import SearchableDropdown from '../components/SearchableDropdown';
 
 const AdminSettings = () => {
   const [categories, setCategories] = useState([]);
@@ -73,6 +74,8 @@ const AdminSettings = () => {
   const [bookOfWeek, setBookOfWeek] = useState(null);
   const [availableBooks, setAvailableBooks] = useState([]);
   const [selectedBookId, setSelectedBookId] = useState('');
+  const [booksLoading, setBooksLoading] = useState(false);
+  const [booksSearchTerm, setBooksSearchTerm] = useState('');
   const [news, setNews] = useState([]);
   const [newNews, setNewNews] = useState({ title: '', content: '', type: 'news', date: '', image: '', featured: false, status: 'published' });
   const [editingNews, setEditingNews] = useState(null);
@@ -84,6 +87,11 @@ const AdminSettings = () => {
   const editTeamPhotoFileRef = useRef(null);
   const newBlogPostFileRef = useRef(null);
   const editBlogPostFileRef = useRef(null);
+
+  // Social links state (stored in backend settings as JSON)
+  const [socialLinks, setSocialLinks] = useState([]);
+  const [newSocialLink, setNewSocialLink] = useState({ platform: '', label: '', url: '', is_active: true, display_order: 0 });
+  const [editingSocialIndex, setEditingSocialIndex] = useState(null);
 
   const uploadImageAndSetUrl = async (file, onUrl, uploadType = 'general', entityType = null, entityId = null, entityTitle = null) => {
     if (!file) return;
@@ -165,11 +173,21 @@ const AdminSettings = () => {
     };
     loadBookOfWeek();
 
-    const loadAvailableBooks = async () => {
+    const loadAvailableBooks = async (searchTerm = '') => {
       try {
-        const res = await apiService.getBooks({ limit: 100 }); // Get more books for selection
-        setAvailableBooks(res.data.books || []);
-      } catch {}
+        setBooksLoading(true);
+        const params = { limit: 100 };
+        if (searchTerm) {
+          params.search = searchTerm;
+        }
+        const res = await apiService.getBooks(params);
+        setAvailableBooks(res.data.items || []);
+      } catch (error) {
+        console.error('Error loading books:', error);
+        setAvailableBooks([]);
+      } finally {
+        setBooksLoading(false);
+      }
     };
     loadAvailableBooks();
 
@@ -191,6 +209,15 @@ const AdminSettings = () => {
       setLoading(false);
     };
     loadNews();
+    const loadSettings = async () => {
+      try {
+        const res = await apiService.getSettings();
+        const settings = (res.data && res.data.settings) || {};
+        const links = Array.isArray(settings.social_links) ? settings.social_links : [];
+        setSocialLinks(links);
+      } catch {}
+    };
+    loadSettings();
   }, []);
 
   const handleAddCategory = async (e) => {
@@ -427,6 +454,11 @@ const AdminSettings = () => {
     }
   };
 
+  const handleBooksSearch = async (searchTerm) => {
+    setBooksSearchTerm(searchTerm);
+    await loadAvailableBooks(searchTerm);
+  };
+
   // Slider handlers
   const handleAddSliderImage = async (e) => {
     e.preventDefault();
@@ -569,6 +601,55 @@ const AdminSettings = () => {
     }
   };
 
+  // Social links handlers
+  const handleAddSocialLink = (e) => {
+    e.preventDefault();
+    if (!newSocialLink.url.trim()) return;
+    const next = [...socialLinks, { ...newSocialLink, display_order: Number(newSocialLink.display_order) || 0 }];
+    setSocialLinks(next);
+    setNewSocialLink({ platform: '', label: '', url: '', is_active: true, display_order: 0 });
+  };
+
+  const handleEditSocialLink = (index) => {
+    setEditingSocialIndex(index);
+    const item = socialLinks[index];
+    setNewSocialLink({ ...item });
+  };
+
+  const handleUpdateSocialLink = (e) => {
+    e.preventDefault();
+    if (editingSocialIndex === null) return;
+    const next = [...socialLinks];
+    next[editingSocialIndex] = { ...newSocialLink, display_order: Number(newSocialLink.display_order) || 0 };
+    setSocialLinks(next);
+    setEditingSocialIndex(null);
+    setNewSocialLink({ platform: '', label: '', url: '', is_active: true, display_order: 0 });
+  };
+
+  const handleDeleteSocialLink = (index) => {
+    if (!window.confirm('حذف هذا الرابط الاجتماعي؟')) return;
+    const next = socialLinks.filter((_, i) => i !== index);
+    setSocialLinks(next);
+  };
+
+  const moveSocial = (index, dir) => {
+    const next = [...socialLinks];
+    const swapWith = index + dir;
+    if (swapWith < 0 || swapWith >= next.length) return;
+    [next[index], next[swapWith]] = [next[swapWith], next[index]];
+    setSocialLinks(next);
+  };
+
+  const handleSaveSocialLinks = async () => {
+    try {
+      const normalized = socialLinks.map((l, i) => ({ ...l, display_order: Number(l.display_order ?? i) }));
+      await apiService.updateSettings({ social_links: normalized });
+      alert('تم حفظ روابط التواصل بنجاح');
+    } catch {
+      alert('فشل حفظ روابط التواصل');
+    }
+  };
+
   if (loading) {
     return <CustomLoader />;
   }
@@ -590,6 +671,7 @@ const AdminSettings = () => {
           <button className={`btn ${activeTab==='book-of-week'?'btn-primary':'btn-secondary'}`} onClick={() => setActiveTab('book-of-week')}>كتاب الأسبوع</button>
           <button className={`btn ${activeTab==='news'?'btn-primary':'btn-secondary'}`} onClick={() => setActiveTab('news')}>الإصدارات/الأخبار</button>
           <button className={`btn ${activeTab==='images'?'btn-primary':'btn-secondary'}`} onClick={() => setActiveTab('images')}>معرض الصور</button>
+          <button className={`btn ${activeTab==='social'?'btn-primary':'btn-secondary'}`} onClick={() => setActiveTab('social')}>روابط التواصل</button>
         </div>
 
         <div className="card" style={{ marginBottom: '2rem' }}>
@@ -683,6 +765,70 @@ const AdminSettings = () => {
               </div>
             </div>
           )}
+        </div>
+        )}
+        {activeTab === 'social' && (
+        <div className="card">
+          <h2>روابط التواصل الاجتماعي</h2>
+          <div className="modern-form" style={{ padding: 0, boxShadow: 'none' }}>
+            <form onSubmit={editingSocialIndex === null ? handleAddSocialLink : handleUpdateSocialLink}>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>المنصة</label>
+                  <input type="text" value={newSocialLink.platform} onChange={(e) => setNewSocialLink({ ...newSocialLink, platform: e.target.value })} placeholder="مثال: X, Instagram, TikTok, YouTube" />
+                </div>
+                <div className="form-group">
+                  <label>الاسم الظاهر</label>
+                  <input type="text" value={newSocialLink.label} onChange={(e) => setNewSocialLink({ ...newSocialLink, label: e.target.value })} placeholder="النص على الزر" />
+                </div>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label>الرابط</label>
+                  <input type="url" value={newSocialLink.url} onChange={(e) => setNewSocialLink({ ...newSocialLink, url: e.target.value })} placeholder="https://..." required />
+                </div>
+                <div className="form-group">
+                  <label>ترتيب العرض</label>
+                  <input type="number" min="0" value={newSocialLink.display_order} onChange={(e) => setNewSocialLink({ ...newSocialLink, display_order: parseInt(e.target.value || '0') })} />
+                </div>
+                <div className="form-group">
+                  <label>
+                    <input type="checkbox" checked={!!newSocialLink.is_active} onChange={(e) => setNewSocialLink({ ...newSocialLink, is_active: e.target.checked })} /> {' '}نشط
+                  </label>
+                </div>
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn btn-primary">{editingSocialIndex === null ? 'إضافة رابط' : 'تحديث الرابط'}</button>
+                {editingSocialIndex !== null && (
+                  <button type="button" className="btn btn-secondary" onClick={() => { setEditingSocialIndex(null); setNewSocialLink({ platform: '', label: '', url: '', is_active: true, display_order: 0 }); }}>إلغاء</button>
+                )}
+                <button type="button" className="btn" onClick={handleSaveSocialLinks}>حفظ جميع الروابط</button>
+              </div>
+            </form>
+          </div>
+          <div className="admin-table" style={{ marginTop: '1rem' }}>
+            <div className="table-header">
+              <div>المنصة</div>
+              <div>الاسم</div>
+              <div>الرابط</div>
+              <div>الترتيب</div>
+              <div>الحالة</div>
+              <div>إجراءات</div>
+            </div>
+            {(socialLinks || []).map((link, index) => (
+              <div className="table-row" key={`${link.platform}-${index}`}>
+                <div>{link.platform || '-'}</div>
+                <div>{link.label || '-'}</div>
+                <div style={{ direction: 'ltr' }}>{link.url}</div>
+                <div>{link.display_order ?? index}</div>
+                <div>{link.is_active ? 'نشط' : 'غير نشط'}</div>
+                <div className="table-actions" style={{ display: 'flex', gap: '0.25rem' }}>
+                  <button className="btn btn-small" onClick={() => moveSocial(index, -1)}>▲</button>
+                  <button className="btn btn-small" onClick={() => moveSocial(index, 1)}>▼</button>
+                  <button className="btn btn-small btn-secondary" onClick={() => handleEditSocialLink(index)}>تعديل</button>
+                  <button className="btn btn-small btn-delete" onClick={() => handleDeleteSocialLink(index)}>حذف</button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
         )}
 
@@ -1751,28 +1897,127 @@ const AdminSettings = () => {
           <h2>إدارة كتاب الأسبوع</h2>
 
           {bookOfWeek ? (
-            <div className="book-of-week-current">
-              <h3>كتاب الأسبوع الحالي</h3>
-              <div className="current-book-display">
-                <div className="book-image">
+            <div className="book-of-week-current" style={{ marginBottom: '2rem' }}>
+              <h3 style={{ marginBottom: '1rem', color: '#1f2937' }}>كتاب الأسبوع الحالي</h3>
+              <div className="current-book-display" style={{
+                display: 'flex',
+                gap: '1.5rem',
+                padding: '1.5rem',
+                border: '2px solid #3b82f6',
+                borderRadius: '12px',
+                backgroundColor: '#f8fafc',
+                alignItems: 'flex-start',
+                minHeight: '200px',
+                flexWrap: 'wrap'
+              }}>
+                <div className="book-image" style={{ flexShrink: 0 }}>
                   <img
                     src={bookOfWeek.image_url || '/images/book-placeholder.jpg'}
                     alt={bookOfWeek.title}
-                    style={{ width: '100px', height: '140px', objectFit: 'cover', borderRadius: '8px' }}
+                    style={{ 
+                      width: '120px', 
+                      height: '160px', 
+                      objectFit: 'cover', 
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                    }}
                     onError={(e) => { e.target.src = '/images/book-placeholder.jpg'; }}
                   />
                 </div>
-                <div className="book-details">
-                  <h4>{bookOfWeek.title}</h4>
-                  <p><strong>المؤلف:</strong> {bookOfWeek.author}</p>
-                  <p><strong>السعر:</strong> {bookOfWeek.price} ريال</p>
-                  <p><strong>التصنيف:</strong> {bookOfWeek.category_name || 'غير محدد'}</p>
-                  <p><strong>تاريخ البداية:</strong> {bookOfWeek.start_date || 'غير محدد'}</p>
-                  <p><strong>تاريخ النهاية:</strong> {bookOfWeek.end_date || 'مفتوح'}</p>
+                <div className="book-details" style={{
+                  flex: 1,
+                  minWidth: 0,
+                  overflow: 'hidden'
+                }}>
+                  <h4 style={{
+                    margin: '0 0 1.25rem 0',
+                    fontSize: '1.4rem',
+                    fontWeight: '700',
+                    color: '#1f2937',
+                    lineHeight: '1.6',
+                    wordWrap: 'break-word',
+                    hyphens: 'auto',
+                    whiteSpace: 'normal',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}>
+                    {bookOfWeek.title}
+                  </h4>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem',
+                    marginBottom: '1.5rem'
+                  }}>
+                    <p style={{
+                      margin: '0 0 0.5rem 0',
+                      fontSize: '1rem',
+                      color: '#4b5563',
+                      lineHeight: '1.6',
+                      padding: '0.5rem 0',
+                      wordWrap: 'break-word',
+                      whiteSpace: 'normal'
+                    }}>
+                      <strong style={{ color: '#374151', fontWeight: '600', marginLeft: '0.5rem' }}>المؤلف:</strong>
+                      <span style={{ marginRight: '0.5rem' }}>{bookOfWeek.author}</span>
+                    </p>
+                    <p style={{
+                      margin: '0 0 0.5rem 0',
+                      fontSize: '1rem',
+                      color: '#4b5563',
+                      lineHeight: '1.6',
+                      padding: '0.5rem 0',
+                      wordWrap: 'break-word',
+                      whiteSpace: 'normal'
+                    }}>
+                      <strong style={{ color: '#374151', fontWeight: '600', marginLeft: '0.5rem' }}>السعر:</strong>
+                      <span style={{ marginRight: '0.5rem' }}>{bookOfWeek.price} ريال</span>
+                    </p>
+                    <p style={{
+                      margin: '0 0 0.5rem 0',
+                      fontSize: '1rem',
+                      color: '#4b5563',
+                      lineHeight: '1.6',
+                      padding: '0.5rem 0',
+                      wordWrap: 'break-word',
+                      whiteSpace: 'normal'
+                    }}>
+                      <strong style={{ color: '#374151', fontWeight: '600', marginLeft: '0.5rem' }}>التصنيف:</strong>
+                      <span style={{ marginRight: '0.5rem' }}>{bookOfWeek.category_name || 'غير محدد'}</span>
+                    </p>
+                    <p style={{
+                      margin: '0 0 0.5rem 0',
+                      fontSize: '1rem',
+                      color: '#4b5563',
+                      lineHeight: '1.6',
+                      padding: '0.5rem 0',
+                      wordWrap: 'break-word',
+                      whiteSpace: 'normal'
+                    }}>
+                      <strong style={{ color: '#374151', fontWeight: '600', marginLeft: '0.5rem' }}>تاريخ البداية:</strong>
+                      <span style={{ marginRight: '0.5rem' }}>{bookOfWeek.start_date || 'غير محدد'}</span>
+                    </p>
+                    <p style={{
+                      margin: '0 0 0.5rem 0',
+                      fontSize: '1rem',
+                      color: '#4b5563',
+                      lineHeight: '1.6',
+                      padding: '0.5rem 0',
+                      wordWrap: 'break-word',
+                      whiteSpace: 'normal'
+                    }}>
+                      <strong style={{ color: '#374151', fontWeight: '600', marginLeft: '0.5rem' }}>تاريخ النهاية:</strong>
+                      <span style={{ marginRight: '0.5rem' }}>{bookOfWeek.end_date || 'مفتوح'}</span>
+                    </p>
+                  </div>
                   <button
                     className="btn btn-delete"
                     onClick={handleRemoveBookOfWeek}
-                    style={{ marginTop: '1rem' }}
+                    style={{ 
+                      padding: '0.75rem 1.5rem',
+                      fontSize: '0.9rem',
+                      fontWeight: '500'
+                    }}
                   >
                     إزالة كتاب الأسبوع
                   </button>
@@ -1780,33 +2025,92 @@ const AdminSettings = () => {
               </div>
             </div>
           ) : (
-            <div className="no-book-of-week">
-              <p>لا يوجد كتاب أسبوع محدد حالياً</p>
+            <div className="no-book-of-week" style={{
+              padding: '2rem',
+              textAlign: 'center',
+              backgroundColor: '#f9fafb',
+              border: '2px dashed #d1d5db',
+              borderRadius: '8px',
+              marginBottom: '2rem'
+            }}>
+              <p style={{ margin: 0, color: '#6b7280', fontSize: '1.1rem' }}>
+                لا يوجد كتاب أسبوع محدد حالياً
+              </p>
             </div>
           )}
 
-          <div className="set-book-of-week">
-            <h3>تحديد كتاب الأسبوع</h3>
+          <div className="set-book-of-week" style={{
+            padding: '1.5rem',
+            backgroundColor: '#ffffff',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            marginBottom: '2rem'
+          }}>
+            <h3 style={{ 
+              marginBottom: '1.5rem', 
+              color: '#1f2937',
+              fontSize: '1.25rem',
+              fontWeight: '600'
+            }}>
+              {bookOfWeek ? 'تغيير كتاب الأسبوع' : 'تحديد كتاب الأسبوع'}
+            </h3>
             <form onSubmit={handleSetBookOfWeek} className="modern-form" style={{ padding: 0, boxShadow: 'none' }}>
-              <div className="form-group">
-                <label htmlFor="book-select">اختر كتاباً</label>
-                <select
-                  id="book-select"
+              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                <label htmlFor="book-select" style={{ 
+                  display: 'block',
+                  marginBottom: '0.75rem',
+                  fontSize: '1rem',
+                  fontWeight: '500',
+                  color: '#374151'
+                }}>
+                  اختر كتاباً
+                </label>
+                <SearchableDropdown
+                  options={availableBooks}
                   value={selectedBookId}
-                  onChange={(e) => setSelectedBookId(e.target.value)}
-                  required
-                >
-                  <option value="">-- اختر كتاباً --</option>
-                  {availableBooks.map(book => (
-                    <option key={book.id} value={book.id}>
-                      {book.title} - {book.author} ({book.price} ريال)
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedBookId}
+                  placeholder="-- اختر كتاباً --"
+                  searchPlaceholder="ابحث عن كتاب..."
+                  displayKey="title"
+                  valueKey="id"
+                  secondaryKey="author"
+                  priceKey="price"
+                  imageKey="image_url"
+                  loading={booksLoading}
+                  onSearch={handleBooksSearch}
+                  searchDelay={500}
+                  className="book-selection-dropdown"
+                  style={{ 
+                    width: '100%',
+                    maxWidth: '500px'
+                  }}
+                />
               </div>
-              <button type="submit" className="btn btn-primary">
-                {bookOfWeek ? 'تغيير كتاب الأسبوع' : 'تحديد كتاب الأسبوع'}
-              </button>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary" 
+                  disabled={!selectedBookId}
+                  style={{
+                    padding: '0.75rem 2rem',
+                    fontSize: '1rem',
+                    fontWeight: '500',
+                    opacity: selectedBookId ? 1 : 0.6,
+                    cursor: selectedBookId ? 'pointer' : 'not-allowed'
+                  }}
+                >
+                  {bookOfWeek ? 'تغيير كتاب الأسبوع' : 'تحديد كتاب الأسبوع'}
+                </button>
+                {selectedBookId && (
+                  <span style={{ 
+                    color: '#059669', 
+                    fontSize: '0.9rem',
+                    fontWeight: '500'
+                  }}>
+                    ✓ تم اختيار كتاب
+                  </span>
+                )}
+              </div>
             </form>
           </div>
 

@@ -73,3 +73,9 @@ if ($result) {
 echo "\n🎉 SendGrid integration test completed!\n";
 echo "Check your email inbox for the test messages.\n";
 ?>
+
+
+
+
+
+

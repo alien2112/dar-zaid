@@ -20,35 +20,55 @@ const Cart = () => {
     e.preventDefault();
     if (cartItems.length === 0) return;
     setErrorMsg('');
+
     if (!name || !email || !phone) {
       setErrorMsg('يرجى إدخال الاسم والبريد ورقم الجوال');
       return;
     }
+
+    if (!selectedPaymentMethod) {
+      setErrorMsg('يرجى اختيار طريقة الدفع');
+      return;
+    }
+
     const customerInfo = { name, email, phone, address, alt_phone: altPhone };
     const items = cartItems.map(i => ({ id: i.id, title: i.title, quantity: i.quantity, price: i.price }));
     const total = getCartTotal();
+
     try {
       setSubmitting(true);
-      const result = await orderService.createOrder({ 
-        customerInfo, 
-        items, 
-        paymentMethod: selectedPaymentMethod?.id || 'stc_pay', 
-        total 
+
+      // Step 1: Create order
+      const orderResult = await orderService.createOrder({
+        customerInfo,
+        items,
+        paymentMethod: selectedPaymentMethod?.id || 'stc_pay',
+        total
       });
-      if (result?.success) {
-        const redirectUrl = result?.redirectUrl || result?.paymentResult?.redirectUrl || result?.paymentResult?.redirect_url || result?.paymentResult?.source?.transaction_url;
-        if (redirectUrl) {
-          window.location.href = redirectUrl;
+
+      if (orderResult?.status === 'success') {
+        // Step 2: Initialize payment
+        const paymentResult = await orderService.initializePayment({
+          payment_method: selectedPaymentMethod?.id || 'stc_pay',
+          amount: orderResult.total_amount,
+          currency: 'SAR',
+          order_id: orderResult.order_id,
+          customer_info: customerInfo
+        });
+
+        if (paymentResult?.status === 'redirect') {
+          // Redirect to payment page
+          window.location.href = paymentResult.redirect_url;
           return;
+        } else {
+          setErrorMsg(paymentResult?.error || 'فشل في تهيئة الدفع');
         }
-        alert('تم إكمال الدفع بنجاح');
-        clearCart();
-        setShowCheckoutForm(false);
       } else {
-        setErrorMsg(result?.error || 'فشل في إنشاء الطلب/الدفع');
+        setErrorMsg(orderResult?.error || 'فشل في إنشاء الطلب');
       }
     } catch (e) {
-      setErrorMsg('حدث خطأ أثناء عملية الدفع');
+      console.error('Checkout error:', e);
+      setErrorMsg(e.response?.data?.error || 'حدث خطأ أثناء عملية الدفع');
     } finally {
       setSubmitting(false);
     }

@@ -1,0 +1,299 @@
+PAYMENT SYSTEM APIS NEEDED FOR DAR ZAID WEBSITE
+====================================================
+
+Based on analysis of your payment system implementation, here are all the external APIs that need to be integrated to make your payment system fully functional:
+
+## OVERVIEW
+Your system is currently set up with placeholder functions for multiple payment providers. Below are the specific APIs and credentials needed for each provider.
+
+## 1. STC PAY API
+**Status:** Not Integrated (Placeholder)
+**Location:** backend/api/payments.php (line 357-367)
+
+Required APIs:
+- STC Pay REST API
+- Documentation: https://developer.stcpay.com.sa/
+
+Required Credentials:
+- STC_PAY_MERCHANT_ID
+- STC_PAY_API_KEY
+- STC_PAY_SECRET
+
+Endpoints to Implement:
+- POST /payment/create - Initialize payment session
+- GET /payment/status/{id} - Check payment status
+- Webhook endpoint for payment notifications
+
+## 2. TAMARA BUY NOW PAY LATER API
+**Status:** Not Integrated (Placeholder)
+**Location:** backend/api/payments.php (line 369-380)
+
+Required APIs:
+- Tamara Checkout API
+- Documentation: https://docs.tamara.co/
+
+Required Credentials:
+- TAMARA_API_URL (https://api.tamara.co or https://api-sandbox.tamara.co)
+- TAMARA_API_TOKEN
+- TAMARA_PUBLIC_KEY
+- TAMARA_NOTIFICATION_TOKEN
+
+Endpoints to Implement:
+- POST /checkout/sessions - Create checkout session
+- GET /orders/{order_id} - Get order details
+- POST /orders/{order_id}/capture - Capture payment
+- POST /orders/{order_id}/cancel - Cancel order
+- POST /orders/{order_id}/refund - Refund order
+
+## 3. TABBY BUY NOW PAY LATER API
+**Status:** Not Integrated (Placeholder)
+**Location:** backend/api/payments.php (line 382-393)
+
+Required APIs:
+- Tabby Checkout API
+- Documentation: https://docs.tabby.ai/
+
+Required Credentials:
+- TABBY_API_URL (https://api.tabby.ai)
+- TABBY_PUBLIC_KEY
+- TABBY_SECRET_KEY
+- TABBY_MERCHANT_CODE
+
+Endpoints to Implement:
+- POST /api/v2/checkout - Create checkout session
+- GET /api/v2/payments/{payment_id} - Get payment details
+- POST /api/v2/payments/{payment_id}/captures - Capture payment
+- POST /api/v2/payments/{payment_id}/refunds - Refund payment
+
+## 4. GOOGLE PAY API
+**Status:** Not Integrated (Placeholder)
+**Location:** backend/api/payments.php (line 395-405)
+
+Required APIs:
+- Google Pay API
+- Documentation: https://developers.google.com/pay
+
+Required Credentials:
+- GOOGLE_PAY_MERCHANT_ID
+- GOOGLE_PAY_ENVIRONMENT (TEST or PRODUCTION)
+- Payment Gateway Credentials (depends on processor)
+
+Frontend Integration:
+- Google Pay JavaScript SDK
+- Payment request configuration
+- Token processing
+
+## 5. APPLE PAY API
+**Status:** Not Integrated (Placeholder)
+**Location:** backend/api/payments.php (line 407-417)
+
+Required APIs:
+- Apple Pay JS Framework
+- Documentation: https://developer.apple.com/apple-pay/
+
+Required Setup:
+- Apple Pay merchant certificate
+- Domain verification
+- APPLE_PAY_MERCHANT_ID
+- APPLE_PAY_COUNTRY_CODE
+
+Frontend Integration:
+- Apple Pay JS session
+- Payment authorization
+- Token processing
+
+## 6. BANK TRANSFER SYSTEM
+**Status:** Partially Implemented (Static bank details)
+**Location:** backend/api/payments.php (line 419-437)
+
+Current Implementation:
+- Static bank account details provided
+- Manual verification required
+
+Enhancement Needed:
+- Bank API integration for automated verification
+- SADAD integration
+- Real-time transfer confirmation
+
+## 7. CARD PAYMENT PROCESSOR APIs
+**Status:** Not Integrated (Placeholder)
+**Location:** backend/api/payments.php (line 439-449)
+
+Recommended Processors for Saudi Arabia:
+
+### Option 1: MOYASAR
+- Documentation: https://moyasar.com/docs/
+- Credentials: MOYASAR_API_KEY, MOYASAR_PUBLISHABLE_KEY
+- Supports: Visa, Mastercard, Mada, Apple Pay, STC Pay
+
+### Option 2: PAYTABS
+- Documentation: https://site.paytabs.com/en/developer/
+- Credentials: PAYTABS_PROFILE_ID, PAYTABS_SERVER_KEY
+- Supports: All major cards, Apple Pay, STC Pay
+
+### Option 3: HYPERPAY
+- Documentation: https://wordpresshyperpay.docs.oppwa.com/
+- Credentials: HYPERPAY_ENTITY_ID, HYPERPAY_ACCESS_TOKEN
+- Supports: Cards, digital wallets
+
+### Option 4: CHECKOUT.COM
+- Documentation: https://docs.checkout.com/
+- Credentials: CHECKOUT_SECRET_KEY, CHECKOUT_PUBLIC_KEY
+- Global processor with MENA support
+
+## 8. PAYPAL API
+**Status:** Not Integrated (Placeholder)
+**Location:** backend/api/payments.php (line 451-461)
+
+Required APIs:
+- PayPal REST API
+- Documentation: https://developer.paypal.com/
+
+Required Credentials:
+- PAYPAL_CLIENT_ID
+- PAYPAL_CLIENT_SECRET
+- PAYPAL_MODE (sandbox or live)
+
+Endpoints to Implement:
+- POST /v2/checkout/orders - Create order
+- GET /v2/checkout/orders/{id} - Get order details
+- POST /v2/checkout/orders/{id}/capture - Capture order
+- POST /v2/payments/captures/{id}/refund - Refund payment
+
+## 9. SADAD PAYMENT SYSTEM
+**Status:** Not Integrated (Placeholder)
+**Location:** backend/api/payments.php (line 463-473)
+
+Required APIs:
+- SADAD e-Payment Gateway
+- Contact: Saudi Post or authorized resellers
+
+Required Integration:
+- SADAD merchant registration
+- Gateway credentials
+- Bill presentment integration
+
+## 10. FAWRY API (Egypt)
+**Status:** Not Integrated (Placeholder)
+**Location:** backend/api/payments.php (line 475-485)
+
+Required APIs:
+- Fawry Payment Gateway
+- Documentation: Contact Fawry directly
+
+Required Credentials:
+- FAWRY_MERCHANT_CODE
+- FAWRY_SECURITY_KEY
+
+## 11. URPAY API
+**Status:** Not Integrated (Placeholder)
+**Location:** backend/api/payments.php (line 487-497)
+
+Required APIs:
+- UrPay Payment Gateway
+- Contact: UrPay for integration documentation
+
+## 12. BENEFIT API (Bahrain)
+**Status:** Not Integrated (Placeholder)
+**Location:** backend/api/payments.php (line 499-509)
+
+Required APIs:
+- Benefit Payment Gateway
+- Contact: Benefit Company
+
+## PRIORITY IMPLEMENTATION ORDER
+
+### HIGH PRIORITY (Essential for Saudi Market):
+1. **Card Processor (Moyasar/PayTabs)** - Handles Visa, Mastercard, Mada
+2. **STC Pay** - Most popular digital wallet in Saudi Arabia
+3. **Tamara** - Leading BNPL service in MENA
+4. **Bank Transfer/SADAD** - Traditional payment method
+
+### MEDIUM PRIORITY:
+5. **Apple Pay** - Growing iOS user base
+6. **Google Pay** - Android users
+7. **Tabby** - Secondary BNPL option
+
+### LOW PRIORITY:
+8. **PayPal** - International customers
+9. **Other regional wallets** - Market-specific needs
+
+## WEBHOOK ENDPOINTS NEEDED
+
+Your system needs to handle webhooks from each provider:
+
+Current webhook handler: `/api/payments/callback` (line 517-602)
+
+Provider-specific webhook endpoints recommended:
+- `/api/payments/webhook/stc-pay`
+- `/api/payments/webhook/tamara`
+- `/api/payments/webhook/tabby`
+- `/api/payments/webhook/moyasar`
+- `/api/payments/webhook/paytabs`
+- `/api/payments/webhook/paypal`
+
+## SECURITY REQUIREMENTS
+
+Each API integration requires:
+1. **Webhook signature verification** (currently placeholder at line 604-609)
+2. **SSL/TLS certificates** for all endpoints
+3. **API key/secret management** via environment variables
+4. **IP whitelisting** where supported
+5. **Request/response logging** for audit trails
+
+## TESTING REQUIREMENTS
+
+Set up sandbox/test environments for:
+- All payment providers
+- Webhook testing with tools like ngrok
+- Payment flow testing with test credentials
+
+## CURRENT IMPLEMENTATION STATUS
+
+✅ **Working:**
+- Database schema for payments and orders
+- Frontend payment method selection
+- Order creation and management
+- Basic payment flow structure
+
+❌ **Missing:**
+- All external payment provider integrations
+- Webhook signature verification
+- Real payment processing
+- Refund processing
+- Payment status synchronization
+
+## NEXT STEPS
+
+1. **Choose primary card processor** (Moyasar recommended for Saudi market)
+2. **Register with STC Pay** as primary digital wallet
+3. **Set up Tamara BNPL** for installment payments
+4. **Implement webhook signature verification**
+5. **Set up test environment with all providers**
+6. **Test complete payment flows**
+7. **Implement real payment processing**
+8. **Add comprehensive error handling**
+9. **Set up monitoring and logging**
+10. **Conduct security audit**
+
+## ESTIMATED INTEGRATION EFFORT
+
+- **Card Processor:** 3-5 days
+- **STC Pay:** 2-3 days
+- **Tamara:** 2-3 days
+- **Apple/Google Pay:** 3-4 days each
+- **Webhook Security:** 1-2 days
+- **Testing & QA:** 5-7 days
+
+**Total Estimated Time:** 4-6 weeks for full implementation
+
+## SUPPORT CONTACTS
+
+Contact each provider's technical support for:
+- API documentation access
+- Sandbox credentials
+- Integration guidelines
+- Certification requirements
+- Go-live approval
+
+This document should be used as a roadmap for implementing your payment system. Start with the high-priority providers based on your target market needs.

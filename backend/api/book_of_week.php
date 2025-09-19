@@ -1,69 +1,10 @@
-<?php
-require_once __DIR__ . '/../config/database.php';
-
-header('Content-Type: application/json');
-$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : 'http://localhost:3000';
-header('Access-Control-Allow-Origin: ' . $origin);
-header('Vary: Origin');
-header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Credentials: true');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit(); }
-
-$database = new Database();
-$db = $database->getConnection();
-
-// Ensure table exists
-$db->exec("CREATE TABLE IF NOT EXISTS book_of_week (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  book_id INT NOT NULL,
-  start_date DATE DEFAULT (CURRENT_DATE),
-  end_date DATE NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_bow_book FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-
-$method = $_SERVER['REQUEST_METHOD'];
-
-if ($method === 'GET') {
-  $stmt = $db->query('SELECT bow.*, b.title, b.author, b.price, b.category as category_name, b.image_url FROM book_of_week bow JOIN books b ON bow.book_id = b.id ORDER BY bow.id DESC LIMIT 1');
-  $row = $stmt->fetch(PDO::FETCH_ASSOC);
-  echo json_encode(['book_of_week' => $row ?: null], JSON_UNESCAPED_UNICODE); exit();
-}
-
-if ($method === 'POST') {
-  $data = json_decode(file_get_contents('php://input'), true);
-  $bookId = intval($data['book_id'] ?? 0);
-  if ($bookId <= 0) { http_response_code(400); echo json_encode(['error'=>'book_id required']); exit(); }
-  // Clear old
-  $db->exec('DELETE FROM book_of_week');
-  $stmt = $db->prepare('INSERT INTO book_of_week (book_id) VALUES (:book_id)');
-  $stmt->execute([':book_id'=>$bookId]);
-  echo json_encode(['success'=>true]); exit();
-}
-
-if ($method === 'DELETE') {
-  $db->exec('DELETE FROM book_of_week'); echo json_encode(['success'=>true]); exit();
-}
-
-http_response_code(405); echo json_encode(['error'=>'Method not allowed']);
-?>
 
 <?php
+// Include centralized CORS configuration
+require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
 
-header('Content-Type: application/json');
-$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
-header('Access-Control-Allow-Origin: ' . $origin);
-header('Vary: Origin');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Credentials: true');
-
 $method = $_SERVER['REQUEST_METHOD'];
-if ($method === 'OPTIONS') { http_response_code(200); exit(); }
 
 $database = new Database();
 $db = $database->getConnection();

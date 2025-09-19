@@ -1,13 +1,7 @@
 <?php
+// Include centralized CORS configuration
+require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
-
-header('Content-Type: application/json');
-$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
-header('Access-Control-Allow-Origin: ' . $origin);
-header('Vary: Origin');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Credentials: true');
 
 $method = $_SERVER['REQUEST_METHOD'];
 // Ensure database connection exists
@@ -20,11 +14,6 @@ if (!isset($db) || !$db) {
         echo json_encode(['error' => 'Database connection failed'], JSON_UNESCAPED_UNICODE);
         exit();
     }
-}
-
-if ($method === 'OPTIONS') {
-    http_response_code(200);
-    exit();
 }
 
 if ($method == 'GET') {
@@ -74,23 +63,51 @@ if ($method == 'GET') {
             $params['searchExact'] = '%' . $search . '%';
         }
         
-        // Category filter (backward compatibility)
+        // Category filter (backward compatibility - support both category name and new filter system)
         if ($category !== '') {
-            $where[] = 'category = :category';
-            $params['category'] = $category;
+            // First try to find category by name in categories table
+            $stmt = $db->prepare("SELECT id FROM categories WHERE name = ?");
+            $stmt->execute([$category]);
+            if ($categoryId = $stmt->fetchColumn()) {
+                $where[] = 'category_id = :category_id';
+                $params['category_id'] = $categoryId;
+            } else {
+                // Fallback to old category field
+                $where[] = 'category = :category';
+                $params['category'] = $category;
+            }
         }
-        
+
         // New filter system
         if (is_array($filters)) {
             // Categories filter
             if (isset($filters['categories']) && is_array($filters['categories']) && count($filters['categories']) > 0) {
-                $categoryPlaceholders = [];
-                foreach ($filters['categories'] as $i => $cat) {
-                    $placeholder = "category_$i";
-                    $categoryPlaceholders[] = ":$placeholder";
-                    $params[$placeholder] = $cat;
+                error_log("Books API: Received categories filter: " . json_encode($filters['categories']));
+                
+                $categoryNames = array_filter($filters['categories'], fn($cat) => $cat !== 'الكل');
+                $categoryIds = [];
+
+                if (!empty($categoryNames)) {
+                    error_log("Books API: Filtered category names: " . json_encode($categoryNames));
+                    
+                    $inQuery = implode(',', array_fill(0, count($categoryNames), '?'));
+                    $stmt = $db->prepare("SELECT id FROM categories WHERE name IN ($inQuery)");
+                    $stmt->execute($categoryNames);
+                    $categoryIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                    
+                    error_log("Books API: Found category IDs: " . json_encode($categoryIds));
                 }
-                $where[] = 'category IN (' . implode(',', $categoryPlaceholders) . ')';
+                
+                if (!empty($categoryIds)) {
+                    $catIdPlaceholders = [];
+                    foreach ($categoryIds as $i => $id) {
+                        $placeholder = "cat_id_$i";
+                        $catIdPlaceholders[] = ":$placeholder";
+                        $params[$placeholder] = $id;
+                    }
+                    $where[] = "category_id IN (" . implode(',', $catIdPlaceholders) . ")";
+                    error_log("Books API: Added category filter to WHERE clause");
+                }
             }
             
             // Price range filter
@@ -130,17 +147,45 @@ if ($method == 'GET') {
             
             // Custom filters
             if (isset($filters['customFilters']) && is_array($filters['customFilters'])) {
-                foreach ($filters['customFilters'] as $filterId => $filterValues) {
-                    if (is_array($filterValues) && count($filterValues) > 0) {
-                        $customPlaceholders = [];
-                        foreach ($filterValues as $i => $value) {
-                            $placeholder = "custom_{$filterId}_$i";
-                            $customPlaceholders[] = ":$placeholder";
-                            $params[$placeholder] = $value;
-                        }
-                        // Assuming custom filters are stored in a JSON field or separate table
-                        // For now, we'll skip custom filters as they need more complex implementation
+                // First, get the custom filter definitions
+                try {
+                    $customFilterStmt = $db->prepare("SELECT id, field_name, type FROM custom_filters WHERE is_active = TRUE");
+                    $customFilterStmt->execute();
+                    $customFilterDefs = [];
+                    while ($row = $customFilterStmt->fetch(PDO::FETCH_ASSOC)) {
+                        $customFilterDefs[$row['id']] = $row;
                     }
+
+                    foreach ($filters['customFilters'] as $filterId => $filterValues) {
+                        if (isset($customFilterDefs[$filterId]) && !empty($filterValues)) {
+                            $filterDef = $customFilterDefs[$filterId];
+                            $fieldName = $filterDef['field_name'];
+                            $filterType = $filterDef['type'];
+
+                            if ($filterType === 'select' && is_array($filterValues) && count($filterValues) > 0) {
+                                // Handle select type custom filters
+                                $customPlaceholders = [];
+                                foreach ($filterValues as $i => $value) {
+                                    $placeholder = "custom_{$filterId}_$i";
+                                    $customPlaceholders[] = ":$placeholder";
+                                    $params[$placeholder] = $value;
+                                }
+                                $where[] = "$fieldName IN (" . implode(',', $customPlaceholders) . ")";
+                            } elseif ($filterType === 'range' && is_array($filterValues)) {
+                                // Handle range type custom filters
+                                if (isset($filterValues['min']) && $filterValues['min'] !== '' && $filterValues['min'] !== null) {
+                                    $where[] = "$fieldName >= :custom_{$filterId}_min";
+                                    $params["custom_{$filterId}_min"] = (float)$filterValues['min'];
+                                }
+                                if (isset($filterValues['max']) && $filterValues['max'] !== '' && $filterValues['max'] !== null && $filterValues['max'] != PHP_FLOAT_MAX) {
+                                    $where[] = "$fieldName <= :custom_{$filterId}_max";
+                                    $params["custom_{$filterId}_max"] = (float)$filterValues['max'];
+                                }
+                            }
+                        }
+                    }
+                } catch (PDOException $e) {
+                    error_log("Custom filters error: " . $e->getMessage());
                 }
             }
         }
@@ -198,7 +243,11 @@ if ($method == 'GET') {
                 'author' => $row['author'],
                 'description' => $row['description'],
                 'price' => (float)$row['price'],
-                'category' => $row['category'],
+                'category' => $row['category_id'] ? (function() use ($db, $row) {
+                    $stmt = $db->prepare("SELECT name FROM categories WHERE id = ?");
+                    $stmt->execute([$row['category_id']]);
+                    return $stmt->fetchColumn() ?: null;
+                })() : null,
                 'publisher' => $row['publisher'] ?? null,
                 'image_url' => $row['image_url'] ?? '/images/book-placeholder.jpg',
                 'isbn' => $row['isbn'],
@@ -228,15 +277,37 @@ if ($method == 'GET') {
             exit();
         }
 
-        $sql = 'INSERT INTO books (title, author, description, price, category, publisher, image_url, stock_quantity, isbn, published_date, is_chosen) 
-                VALUES (:title, :author, :description, :price, :category, :publisher, :image_url, :stock_quantity, :isbn, :published_date, :is_chosen)';
+        $sql = 'INSERT INTO books (title, author, description, price, category_id, publisher, image_url, stock_quantity, isbn, published_date, is_chosen)
+                VALUES (:title, :author, :description, :price, :category_id, :publisher, :image_url, :stock_quantity, :isbn, :published_date, :is_chosen)';
         $stmt = $db->prepare($sql);
+        // Resolve category_id
+        $categoryId = null;
+        if (isset($data['category']) && !empty($data['category'])) {
+            error_log("Books POST: Category received: '{$data['category']}'");
+            error_log("Books POST: Category length: " . strlen($data['category']));
+
+            $catStmt = $db->prepare("SELECT id FROM categories WHERE name = ?");
+            $catStmt->execute([$data['category']]);
+            $result = $catStmt->fetchColumn();
+
+            error_log("Books POST: Raw fetch result: " . var_export($result, true));
+
+            if ($result !== false && $result !== '' && $result !== null) {
+                $categoryId = (int)$result;
+                error_log("Books POST: Category ID resolved to: " . $categoryId);
+            } else {
+                error_log("Books POST: Category not found for: '{$data['category']}'");
+            }
+        } else {
+            error_log("Books POST: No category provided in data");
+        }
+
         $executeParams = [
             'title' => $data['title'],
             'author' => $data['author'],
             'description' => $data['description'] ?? '',
             'price' => (float)$data['price'],
-            'category' => $data['category'] ?? null,
+            'category_id' => $categoryId,
             'publisher' => $data['publisher'] ?? null,
             'image_url' => $data['image_url'] ?? null,
             'stock_quantity' => isset($data['stock_quantity']) ? (int)$data['stock_quantity'] : 0,
@@ -250,7 +321,20 @@ if ($method == 'GET') {
         $id = (int)$db->lastInsertId();
 
         http_response_code(201);
-        echo json_encode(['id' => $id] + $data, JSON_UNESCAPED_UNICODE);
+        echo json_encode([
+            'id' => $id,
+            'title' => $data['title'],
+            'author' => $data['author'],
+            'description' => $data['description'] ?? '',
+            'price' => (float)$data['price'],
+            'category' => $data['category'] ?? null,
+            'publisher' => $data['publisher'] ?? null,
+            'image_url' => $data['image_url'] ?? null,
+            'isbn' => $data['isbn'] ?? null,
+            'stock_quantity' => isset($data['stock_quantity']) ? (int)$data['stock_quantity'] : 0,
+            'published_date' => $data['published_date'] ?? null,
+            'is_chosen' => isset($data['is_chosen']) ? (int)$data['is_chosen'] : 0
+        ], JSON_UNESCAPED_UNICODE);
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Database error: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
@@ -267,22 +351,54 @@ if ($method == 'GET') {
         $data = json_decode(file_get_contents('php://input'), true) ?: [];
         $fields = [];
         $params = ['id' => $id];
-        foreach (['title','author','description','price','category','publisher','image_url','stock_quantity','isbn','published_date', 'is_chosen'] as $f) {
+        
+        // Handle category field separately to convert to category_id
+        if (array_key_exists('category', $data)) {
+            $categoryName = $data['category'];
+            if ($categoryName) {
+                // Find category ID by name
+                $stmt = $db->prepare("SELECT id FROM categories WHERE name = ?");
+                $stmt->execute([$categoryName]);
+                $categoryId = $stmt->fetchColumn();
+                if ($categoryId) {
+                    $fields[] = "category_id = :category_id";
+                    $params['category_id'] = (int)$categoryId;
+                } else {
+                    // If category not found, set to null
+                    $fields[] = "category_id = :category_id";
+                    $params['category_id'] = null;
+                }
+            } else {
+                $fields[] = "category_id = :category_id";
+                $params['category_id'] = null;
+            }
+        }
+        
+        // Handle other fields
+        foreach (['title','author','description','price','publisher','image_url','stock_quantity','isbn','published_date', 'is_chosen'] as $f) {
             if (array_key_exists($f, $data)) {
                 $fields[] = "$f = :$f";
                 $params[$f] = $f === 'price' ? (float)$data[$f] : ($f === 'stock_quantity' ? (int)$data[$f] : ($f === 'is_chosen' ? (int)$data[$f] : $data[$f]));
             }
         }
+        
         if (empty($fields)) {
             http_response_code(400);
             echo json_encode(['error' => 'No fields to update']);
             exit();
         }
+        
         $sql = 'UPDATE books SET ' . implode(', ', $fields) . ' WHERE id = :id';
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
-        http_response_code(200);
-        echo json_encode(['message' => 'Book updated']);
+        
+        if ($stmt->rowCount() > 0) {
+            http_response_code(200);
+            echo json_encode(['message' => 'Book updated']);
+        } else {
+            http_response_code(404);
+            echo json_encode(['error' => 'Book not found']);
+        }
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Database error: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);

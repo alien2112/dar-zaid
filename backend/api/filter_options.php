@@ -1,13 +1,7 @@
 <?php
+// Include centralized CORS configuration
+require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/database.php';
-
-header('Content-Type: application/json');
-$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
-header('Access-Control-Allow-Origin: ' . $origin);
-header('Vary: Origin');
-header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Credentials: true');
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -23,23 +17,41 @@ if (!isset($db) || !$db) {
     }
 }
 
-if ($method === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
-
 if ($method == 'GET') {
     try {
         $options = [];
         
-        // Get categories
-        $categorySql = "SELECT DISTINCT category FROM books WHERE category IS NOT NULL AND category != '' ORDER BY category ASC";
+        // Get categories from the categories table
+        $categorySql = "SELECT name FROM categories ORDER BY name ASC";
         $categoryStmt = $db->prepare($categorySql);
         $categoryStmt->execute();
         $categories = [];
+        
         while ($row = $categoryStmt->fetch(PDO::FETCH_ASSOC)) {
-            $categories[] = $row['category'];
+            $categories[] = $row['name'];
         }
+        
+        // If no categories found, use fallback from books table
+        if (empty($categories)) {
+            $fallbackSql = "SELECT DISTINCT category FROM books WHERE category IS NOT NULL AND category != '' ORDER BY category ASC";
+            $fallbackStmt = $db->prepare($fallbackSql);
+            $fallbackStmt->execute();
+            while ($row = $fallbackStmt->fetch(PDO::FETCH_ASSOC)) {
+                if (!empty($row['category'])) {
+                    $categories[] = $row['category'];
+                    
+                    // Also insert into categories table
+                    try {
+                        $insertSql = "INSERT IGNORE INTO categories (name) VALUES (?)";
+                        $insertStmt = $db->prepare($insertSql);
+                        $insertStmt->execute([$row['category']]);
+                    } catch (Exception $e) {
+                        // Ignore errors
+                    }
+                }
+            }
+        }
+        
         $options['categories'] = $categories;
         
         // Get authors
