@@ -41,21 +41,30 @@ const MovingBar = React.memo(() => {
       padding: '0.5rem',
       overflow: 'hidden',
       whiteSpace: 'nowrap',
-      width: '100%', // Ensure full width
+      width: '100%',
       position: 'relative',
     }}>
-      <div style={{
-        display: 'inline-block',
-        animation: 'move 20s linear infinite',
-        paddingLeft: '100%', // Start from right edge
-      }}>
+      <div className="moving-bar-text">
         {text}
       </div>
       <style>
         {`
-          @keyframes move {
-            0% { transform: translateX(0%); }
+          @keyframes movingBarScroll {
+            0% { transform: translateX(100%); }
             100% { transform: translateX(-100%); }
+          }
+
+          .moving-bar-text {
+            display: inline-block;
+            padding-left: 100%;
+            animation: movingBarScroll 20s linear infinite !important;
+          }
+
+          /* Ensure moving bar still animates even if user prefers reduced motion */
+          @media (prefers-reduced-motion: reduce) {
+            .moving-bar-text {
+              animation-duration: 30s !important;
+            }
           }
         `}
       </style>
